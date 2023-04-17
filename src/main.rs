@@ -23,7 +23,18 @@ fn main() {
                     x: size.width as i32 / 2,
                     y: size.height as i32 / 2,
                 };
-                let buffer = ring_shader(&size, mid, &100.0, &10.0);
+                let circle = Point {
+                    x: mid.x - 150,
+                    y: mid.y,
+                };
+                let ring = Point {
+                    x: mid.x + 150,
+                    y: mid.y,
+                };
+
+                let mut buffer = vec![0; (size.width * size.height) as usize];
+                circle_shader(&mut buffer, &size, circle, &100.0);
+                ring_shader(&mut buffer, &size, ring, &100.0, &10.0);
 
                 graphics_context.set_buffer(&buffer, size.width as u16, size.height as u16);
             }
@@ -38,48 +49,50 @@ fn main() {
     });
 }
 
-fn ring_shader(size: &PhysicalSize<u32>, center: Point, radius: &f32, thickness: &f32) -> Vec<u32> {
+fn ring_shader(
+    buffer: &mut [u32],
+    size: &PhysicalSize<u32>,
+    center: Point,
+    radius: &f32,
+    thickness: &f32,
+) {
     let (width, height) = (size.width, size.height);
 
-    (0..((width * height) as usize))
-        .map(|index| {
-            let y = (index / (width as usize)) as i32;
-            let x = (index % (width as usize)) as i32;
-            let point = Point { x, y };
-            let distance = center.distance(&point);
+    for (index, elem) in buffer.iter_mut().enumerate() {
+        let y = (index / (width as usize)) as i32;
+        let x = (index % (width as usize)) as i32;
+        let point = Point { x, y };
+        let distance = center.distance(&point);
 
-            let in_circle = step(distance, *radius);
-            let in_ring = 1. - step(distance, (*radius - thickness));
+        let in_circle = smooth_step(distance, *radius, *radius - 3.);
+        let in_ring = 1. - smooth_step(distance, (*radius - thickness), (*radius - thickness) - 3.);
 
-            let rgb = (255.0 * in_circle * in_ring) as u32;
+        let rgb = (255.0 * in_circle * in_ring) as u32;
 
-            let mut color = rgb;
-            color = (color << 8) + rgb;
-            color = (color << 8) + rgb;
-            color
-        })
-        .collect::<Vec<_>>()
+        let mut color = rgb;
+        color = (color << 8) + rgb;
+        color = (color << 8) + rgb;
+        *elem = color_lerp(color, *elem, 0.5);
+    }
 }
 
-fn circle_shader(size: &PhysicalSize<u32>, center: Point, radius: &f32) -> Vec<u32> {
+fn circle_shader(buffer: &mut [u32], size: &PhysicalSize<u32>, center: Point, radius: &f32) {
     let (width, height) = (size.width, size.height);
 
-    (0..((width * height) as usize))
-        .map(|index| {
-            let y = (index / (width as usize)) as i32;
-            let x = (index % (width as usize)) as i32;
-            let point = Point { x, y };
-            let distance = center.distance(&point);
+    for (index, elem) in buffer.iter_mut().enumerate() {
+        let y = (index / (width as usize)) as i32;
+        let x = (index % (width as usize)) as i32;
+        let point = Point { x, y };
+        let distance = center.distance(&point);
 
-            let in_circle = step(distance, *radius);
+        let in_circle = smooth_step(distance, *radius, *radius - 3.);
 
-            let rgb = (255.0 * in_circle) as u32;
-            let mut color = rgb;
-            color = (color << 8) + rgb;
-            color = (color << 8) + rgb;
-            color
-        })
-        .collect::<Vec<_>>()
+        let rgb = (255.0 * in_circle) as u32;
+        let mut color = rgb;
+        color = (color << 8) + rgb;
+        color = (color << 8) + rgb;
+        *elem = color_lerp(color, *elem, 0.5);
+    }
 }
 
 fn step(value: f32, edge: f32) -> f32 {
@@ -87,6 +100,30 @@ fn step(value: f32, edge: f32) -> f32 {
         true => 1.,
         _ => 0.,
     }
+}
+
+fn smooth_step(value: f32, edge_0: f32, edge_1: f32) -> f32 {
+    let x = ((value - edge_0) / (edge_1 - edge_0)).clamp(0., 1.);
+    x * x * (3. - 2. * x)
+}
+
+fn color_lerp(color_0: u32, color_1: u32, weight: f32) -> u32 {
+    let (red_0, green_0, blue_0) = to_rgb(color_0);
+    let (red_1, green_1, blue_1) = to_rgb(color_1);
+
+    let red_lp = (red_0 + weight * (red_1 - red_0)) as u32;
+    let green_lp = (green_0 + weight * (green_1 - green_0)) as u32;
+    let blue_lp = (blue_0 + weight * (blue_1 - blue_0)) as u32;
+
+    (255 << 24) + (red_lp << 16) + (green_lp << 8) + blue_lp
+}
+
+fn to_rgb(color: u32) -> (f32, f32, f32) {
+    let red = (color >> 16) & 0xff;
+    let green = (color >> 8) & 0xff;
+    let blue = color & 0xff;
+
+    (red as f32, green as f32, blue as f32)
 }
 
 fn distance_from_center(width: &u32, height: &u32) -> Vec<u32> {
