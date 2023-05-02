@@ -15,27 +15,29 @@ fn main() {
 
     event_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Wait;
+        let size = window.inner_size();
+        let mut buffer = vec![0; (size.width * size.height) as usize];
+
+        let mid = Point {
+            x: size.width as i32 / 2,
+            y: size.height as i32 / 2,
+        };
+        let circle = Point {
+            x: mid.x - 150,
+            y: mid.y,
+        };
+        let ring = Point {
+            x: mid.x + 150,
+            y: mid.y,
+        };
+        circle_shader(&mut buffer, &size, circle, &100.0);
+        ring_shader(&mut buffer, &size, ring, &100.0, &10.0);
 
         match event {
             Event::MainEventsCleared => {
-                let size = window.inner_size();
-                let mid = Point {
-                    x: size.width as i32 / 2,
-                    y: size.height as i32 / 2,
-                };
-                let circle = Point {
-                    x: mid.x - 150,
-                    y: mid.y,
-                };
-                let ring = Point {
-                    x: mid.x + 150,
-                    y: mid.y,
-                };
-
-                let mut buffer = vec![0; (size.width * size.height) as usize];
-                circle_shader(&mut buffer, &size, circle, &100.0);
-                ring_shader(&mut buffer, &size, ring, &100.0, &10.0);
-
+                graphics_context.set_buffer(&buffer, size.width as u16, size.height as u16);
+            }
+            Event::RedrawRequested(window_id) if window.id() == window_id => {
                 graphics_context.set_buffer(&buffer, size.width as u16, size.height as u16);
             }
             Event::WindowEvent {
