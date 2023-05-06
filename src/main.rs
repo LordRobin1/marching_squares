@@ -18,20 +18,7 @@ fn main() {
         let size = window.inner_size();
         let mut buffer = vec![0; (size.width * size.height) as usize];
 
-        let mid = Point {
-            x: size.width as i32 / 2,
-            y: size.height as i32 / 2,
-        };
-        let circle = Point {
-            x: mid.x - 150,
-            y: mid.y,
-        };
-        let ring = Point {
-            x: mid.x + 150,
-            y: mid.y,
-        };
-        circle_shader(&mut buffer, &size, circle, &100.0);
-        ring_shader(&mut buffer, &size, ring, &100.0, &10.0);
+        render(&mut buffer, &size);
 
         match event {
             Event::MainEventsCleared => {
@@ -49,6 +36,23 @@ fn main() {
             _ => {}
         }
     });
+}
+
+fn render(buffer: &mut [u32], size: &PhysicalSize<u32>) {
+    let mid = Point {
+        x: size.width as i32 / 2,
+        y: size.height as i32 / 2,
+    };
+    let circle = Point {
+        x: mid.x - 150,
+        y: mid.y,
+    };
+    let ring = Point {
+        x: mid.x + 150,
+        y: mid.y,
+    };
+    circle_shader(buffer, size, circle, &100.0);
+    ring_shader(buffer, size, ring, &100.0, &10.0);
 }
 
 fn ring_shader(
