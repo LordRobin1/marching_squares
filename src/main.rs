@@ -51,8 +51,13 @@ fn render(buffer: &mut [u32], size: &PhysicalSize<u32>) {
         x: mid.x + 150,
         y: mid.y,
     };
+    let ring1 = Point {
+        x: mid.x + 100,
+        y: mid.y,
+    };
     circle_shader(buffer, size, circle, &100.0);
     ring_shader(buffer, size, ring, &100.0, &10.0);
+    ring_shader(buffer, size, ring1, &100.0, &10.0);
 }
 
 fn ring_shader(
