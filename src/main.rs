@@ -78,7 +78,8 @@ fn ring_shader(
         let mut color = rgb;
         color = (color << 8) + rgb;
         color = (color << 8) + rgb;
-        *elem = color_lerp(color, *elem, 0.5);
+
+        *elem = color_lerp(color, *elem, 0.5)
     }
 }
 
@@ -97,7 +98,8 @@ fn circle_shader(buffer: &mut [u32], size: &PhysicalSize<u32>, center: Point, ra
         let mut color = rgb;
         color = (color << 8) + rgb;
         color = (color << 8) + rgb;
-        *elem = color_lerp(color, *elem, 0.5);
+
+        *elem = color_lerp(color, *elem, 0.5)
     }
 }
 
@@ -114,14 +116,21 @@ fn smooth_step(value: f32, edge_0: f32, edge_1: f32) -> f32 {
 }
 
 fn color_lerp(color_0: u32, color_1: u32, weight: f32) -> u32 {
-    let (red_0, green_0, blue_0) = to_rgb(color_0);
-    let (red_1, green_1, blue_1) = to_rgb(color_1);
+    match (color_0, color_1) {
+        (0, 0) => 0,
+        (0, _) => color_1,
+        (_, 0) => color_0,
+        _ => {
+            let (red_0, green_0, blue_0) = to_rgb(color_0);
+            let (red_1, green_1, blue_1) = to_rgb(color_1);
 
-    let red_lp = (red_0 + weight * (red_1 - red_0)) as u32;
-    let green_lp = (green_0 + weight * (green_1 - green_0)) as u32;
-    let blue_lp = (blue_0 + weight * (blue_1 - blue_0)) as u32;
+            let red_lp = (red_0 + weight * (red_1 - red_0)) as u32;
+            let green_lp = (green_0 + weight * (green_1 - green_0)) as u32;
+            let blue_lp = (blue_0 + weight * (blue_1 - blue_0)) as u32;
 
-    (255 << 24) + (red_lp << 16) + (green_lp << 8) + blue_lp
+            (255 << 24) + (red_lp << 16) + (green_lp << 8) + blue_lp
+        }
+    }
 }
 
 fn to_rgb(color: u32) -> (f32, f32, f32) {
