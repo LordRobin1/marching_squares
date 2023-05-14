@@ -12,6 +12,7 @@ fn main() {
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new().build(&event_loop).unwrap();
     let mut graphics_context = unsafe { GraphicsContext::new(&window, &window) }.unwrap();
+    window.set_resizable(true); // doesn't help
 
     event_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Wait;
@@ -27,6 +28,13 @@ fn main() {
             Event::RedrawRequested(window_id) if window.id() == window_id => {
                 graphics_context.set_buffer(&buffer, size.width as u16, size.height as u16);
             }
+            // doesn't seem to fix stuff
+            Event::WindowEvent {
+                event: WindowEvent::Resized(win_size),
+                window_id,
+            } if window_id == window.id() => {
+                graphics_context.set_buffer(&buffer, win_size.width as u16, win_size.height as u16);
+            }
             Event::WindowEvent {
                 event: WindowEvent::CloseRequested,
                 window_id,
@@ -39,6 +47,12 @@ fn main() {
 }
 
 fn render(buffer: &mut [u32], size: &PhysicalSize<u32>) {
+    shaders(buffer, size);
+}
+
+fn shaders(buffer: &mut [u32], size: &PhysicalSize<u32>) {
+    let (width, height) = (size.width, size.height);
+    let mut pxl: Pixel;
     let mid = Point {
         x: size.width as i32 / 2,
         y: size.height as i32 / 2,
@@ -55,57 +69,52 @@ fn render(buffer: &mut [u32], size: &PhysicalSize<u32>) {
         x: mid.x + 100,
         y: mid.y,
     };
-    circle_shader(buffer, size, circle, &100.0);
-    ring_shader(buffer, size, ring, &100.0, &10.0);
-    ring_shader(buffer, size, ring1, &100.0, &10.0);
-}
-
-fn ring_shader(
-    buffer: &mut [u32],
-    size: &PhysicalSize<u32>,
-    center: Point,
-    radius: &f32,
-    thickness: &f32,
-) {
-    let (width, height) = (size.width, size.height);
+    let radius = 100.0;
+    let thickness = 10.0;
 
     for (index, elem) in buffer.iter_mut().enumerate() {
-        let y = (index / (width as usize)) as i32;
-        let x = (index % (width as usize)) as i32;
-        let point = Point { x, y };
-        let distance = center.distance(&point);
+        pxl = Pixel {
+            pos: Point {
+                x: (index % (width as usize)) as i32,
+                y: (index / (width as usize)) as i32,
+            },
+            color: 0x00,
+        };
 
-        let in_circle = smooth_step(distance, *radius, *radius - 3.);
-        let in_ring = 1. - smooth_step(distance, (*radius - thickness), (*radius - thickness) - 3.);
+        circle_shader(&mut pxl, &circle, &radius);
+        ring_shader(&mut pxl, &ring, &radius, &thickness);
+        ring_shader(&mut pxl, &ring1, &radius, &thickness);
 
-        let rgb = (255.0 * in_circle * in_ring) as u32;
-
-        let mut color = rgb;
-        color = (color << 8) + rgb;
-        color = (color << 8) + rgb;
-
-        *elem = color_lerp(color, *elem, 0.5)
+        *elem = pxl.color;
     }
 }
 
-fn circle_shader(buffer: &mut [u32], size: &PhysicalSize<u32>, center: Point, radius: &f32) {
-    let (width, height) = (size.width, size.height);
+fn ring_shader(pxl: &mut Pixel, center: &Point, radius: &f32, thickness: &f32) {
+    let distance = center.distance(&pxl.pos);
 
-    for (index, elem) in buffer.iter_mut().enumerate() {
-        let y = (index / (width as usize)) as i32;
-        let x = (index % (width as usize)) as i32;
-        let point = Point { x, y };
-        let distance = center.distance(&point);
+    let in_circle = smooth_step(distance, *radius, *radius - 3.);
+    let in_ring = 1. - smooth_step(distance, (*radius - thickness), (*radius - thickness) - 3.);
 
-        let in_circle = smooth_step(distance, *radius, *radius - 3.);
+    let rgb = (255.0 * in_circle * in_ring) as u32;
 
-        let rgb = (255.0 * in_circle) as u32;
-        let mut color = rgb;
-        color = (color << 8) + rgb;
-        color = (color << 8) + rgb;
+    let mut color = rgb;
+    color = (color << 8) + rgb;
+    color = (color << 8) + rgb;
 
-        *elem = color_lerp(color, *elem, 0.5)
-    }
+    pxl.color = color_lerp(color, pxl.color, 0.5);
+}
+
+fn circle_shader(pxl: &mut Pixel, center: &Point, radius: &f32) {
+    let distance = center.distance(&pxl.pos);
+
+    let in_circle = smooth_step(distance, *radius, *radius - 3.);
+
+    let rgb = (255.0 * in_circle) as u32;
+    let mut color = rgb;
+    color = (color << 8) + rgb;
+    color = (color << 8) + rgb;
+
+    pxl.color = color_lerp(color, pxl.color, 0.5);
 }
 
 fn step(value: f32, edge: f32) -> f32 {
@@ -169,6 +178,12 @@ fn distance_from_center(width: &u32, height: &u32) -> Vec<u32> {
             color
         })
         .collect::<Vec<_>>()
+}
+
+#[derive(Debug)]
+struct Pixel {
+    pos: Point,
+    color: u32,
 }
 
 #[derive(Debug)]
