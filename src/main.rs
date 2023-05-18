@@ -12,29 +12,16 @@ fn main() {
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new().build(&event_loop).unwrap();
     let mut graphics_context = unsafe { GraphicsContext::new(&window, &window) }.unwrap();
-    window.set_resizable(true); // doesn't help
 
     event_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Wait;
-        let size = window.inner_size();
-        let mut buffer = vec![0; (size.width * size.height) as usize];
-
-        render(&mut buffer, &size);
 
         match event {
-            Event::MainEventsCleared => {
-                graphics_context.set_buffer(&buffer, size.width as u16, size.height as u16);
-            }
             Event::RedrawRequested(window_id) if window.id() == window_id => {
-                graphics_context.set_buffer(&buffer, size.width as u16, size.height as u16);
+                let size = window.inner_size();
+                render(&mut graphics_context, &size);
             }
-            // doesn't seem to fix stuff
-            Event::WindowEvent {
-                event: WindowEvent::Resized(win_size),
-                window_id,
-            } if window_id == window.id() => {
-                graphics_context.set_buffer(&buffer, win_size.width as u16, win_size.height as u16);
-            }
+            Event::MainEventsCleared => {}
             Event::WindowEvent {
                 event: WindowEvent::CloseRequested,
                 window_id,
@@ -46,8 +33,10 @@ fn main() {
     });
 }
 
-fn render(buffer: &mut [u32], size: &PhysicalSize<u32>) {
-    shaders(buffer, size);
+fn render(context: &mut GraphicsContext, size: &PhysicalSize<u32>) {
+    let mut buffer = vec![0; (size.width * size.height) as usize];
+    shaders(&mut buffer, size);
+    context.set_buffer(&buffer, size.width as u16, size.height as u16);
 }
 
 fn shaders(buffer: &mut [u32], size: &PhysicalSize<u32>) {
@@ -71,21 +60,24 @@ fn shaders(buffer: &mut [u32], size: &PhysicalSize<u32>) {
     };
     let radius = 100.0;
     let thickness = 10.0;
+    let index: i32;
 
-    for (index, elem) in buffer.iter_mut().enumerate() {
-        pxl = Pixel {
-            pos: Point {
-                x: (index % (width as usize)) as i32,
-                y: (index / (width as usize)) as i32,
-            },
-            color: 0x00,
-        };
+    for y in 0..height {
+        for x in 0..width {
+            pxl = Pixel {
+                pos: Point {
+                    x: (x as i32),
+                    y: (y as i32),
+                },
+                color: 0x00,
+            };
 
-        circle_shader(&mut pxl, &circle, &radius);
-        ring_shader(&mut pxl, &ring, &radius, &thickness);
-        ring_shader(&mut pxl, &ring1, &radius, &thickness);
+            circle_shader(&mut pxl, &circle, &radius);
+            ring_shader(&mut pxl, &ring, &radius, &thickness);
+            ring_shader(&mut pxl, &ring1, &radius, &thickness);
 
-        *elem = pxl.color;
+            buffer[(y * width + x) as usize] = pxl.color;
+        }
     }
 }
 
@@ -155,6 +147,7 @@ fn to_rgb(color: u32) -> (f32, f32, f32) {
     (red as f32, green as f32, blue as f32)
 }
 
+// not adapted to new shader system yet
 fn distance_from_center(width: &u32, height: &u32) -> Vec<u32> {
     let origin = Point { x: 0, y: 0 };
     let mid = Point {
