@@ -43,8 +43,8 @@ fn shaders(buffer: &mut [u32], size: &PhysicalSize<u32>) {
     let (width, height) = (size.width, size.height);
     let mut pxl: Pixel;
     let mid = Point {
-        x: size.width as i32 / 2,
-        y: size.height as i32 / 2,
+        x: size.width / 2,
+        y: size.height / 2,
     };
     let circle = Point {
         x: mid.x - 150,
@@ -65,10 +65,7 @@ fn shaders(buffer: &mut [u32], size: &PhysicalSize<u32>) {
     for y in 0..height {
         for x in 0..width {
             pxl = Pixel {
-                pos: Point {
-                    x: (x as i32),
-                    y: (y as i32),
-                },
+                pos: Point { x, y },
                 color: 0x00,
             };
 
@@ -148,29 +145,16 @@ fn to_rgb(color: u32) -> (f32, f32, f32) {
 }
 
 // not adapted to new shader system yet
-fn distance_from_center(width: &u32, height: &u32) -> Vec<u32> {
+fn dist_to_center(pxl: &Pixel, width: &u32, height: &u32) -> f32 {
     let origin = Point { x: 0, y: 0 };
     let mid = Point {
-        x: *width as i32 / 2,
-        y: *height as i32 / 2,
+        x: *width / 2,
+        y: *height / 2,
     };
     let max_dist = origin.distance(&mid);
 
-    (0..((width * height) as usize))
-        .map(|index| {
-            let y = (index / (*width as usize)) as i32;
-            let x = (index % (*width as usize)) as i32;
-            let point = Point { x, y };
-            let distance = mid.distance(&point);
-            let mapped_dist = distance / max_dist;
-
-            let rgb = (255.0 * mapped_dist) as u32;
-            let mut color = rgb;
-            color = (color << 8) + rgb;
-            color = (color << 8) + rgb;
-            color
-        })
-        .collect::<Vec<_>>()
+    let distance = mid.distance(&pxl.pos);
+    distance / max_dist
 }
 
 #[derive(Debug)]
@@ -181,8 +165,8 @@ struct Pixel {
 
 #[derive(Debug)]
 struct Point {
-    x: i32,
-    y: i32,
+    x: u32,
+    y: u32,
 }
 
 impl Point {
