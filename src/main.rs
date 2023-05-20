@@ -12,7 +12,7 @@ fn main() {
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new().build(&event_loop).unwrap();
     let mut graphics_context = unsafe { GraphicsContext::new(&window, &window) }.unwrap();
-    window.set_resizable(true); // doesn't help
+    // window.set_resizable(true); // doesn't help
 
     event_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Wait;
@@ -22,19 +22,19 @@ fn main() {
         render(&mut buffer, &size);
 
         match event {
-            Event::MainEventsCleared => {
-                graphics_context.set_buffer(&buffer, size.width as u16, size.height as u16);
-            }
             Event::RedrawRequested(window_id) if window.id() == window_id => {
                 graphics_context.set_buffer(&buffer, size.width as u16, size.height as u16);
             }
-            // doesn't seem to fix stuff
-            Event::WindowEvent {
-                event: WindowEvent::Resized(win_size),
-                window_id,
-            } if window_id == window.id() => {
-                graphics_context.set_buffer(&buffer, win_size.width as u16, win_size.height as u16);
+            Event::MainEventsCleared => {
+                window.request_redraw();
             }
+            // doesn't seem to fix stuff
+            // Event::WindowEvent {
+            //     event: WindowEvent::Resized(win_size),
+            //     window_id,
+            // } if window_id == window.id() => {
+            //     graphics_context.set_buffer(&buffer, win_size.width as u16, win_size.height as u16);
+            // }
             Event::WindowEvent {
                 event: WindowEvent::CloseRequested,
                 window_id,
