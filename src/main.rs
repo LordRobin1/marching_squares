@@ -7,6 +7,7 @@ use winit::dpi::PhysicalSize;
 use winit::event::{Event, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::WindowBuilder;
+use ColorMode::*;
 
 fn main() {
     let event_loop = EventLoop::new();
@@ -47,7 +48,7 @@ fn shaders(buffer: &mut [u32], size: &PhysicalSize<u32>) {
         y: size.height / 2,
     };
     let circle = Point {
-        x: mid.x - 150,
+        x: mid.x - 150, // might overflow
         y: mid.y,
     };
     let ring = Point {
@@ -68,17 +69,22 @@ fn shaders(buffer: &mut [u32], size: &PhysicalSize<u32>) {
                 pos: Point { x, y },
                 color: 0x00,
             };
-
-            circle_shader(&mut pxl, &circle, &radius);
-            ring_shader(&mut pxl, &ring, &radius, &thickness);
-            ring_shader(&mut pxl, &ring1, &radius, &thickness);
+            circle_shader(&mut pxl, &circle, &radius, ColorMode::Lerp);
+            ring_shader(&mut pxl, &ring, &radius, &thickness, ColorMode::Additive);
+            ring_shader(&mut pxl, &ring1, &radius, &thickness, ColorMode::Additive);
 
             buffer[(y * width + x) as usize] = pxl.color;
         }
     }
 }
 
-fn ring_shader(pxl: &mut Pixel, center: &Point, radius: &f32, thickness: &f32) {
+fn ring_shader(
+    pxl: &mut Pixel,
+    center: &Point,
+    radius: &f32,
+    thickness: &f32,
+    col_mode: ColorMode,
+) {
     let distance = center.distance(&pxl.pos);
 
     let in_circle = smooth_step(distance, *radius, *radius - 3.);
@@ -90,10 +96,14 @@ fn ring_shader(pxl: &mut Pixel, center: &Point, radius: &f32, thickness: &f32) {
     color = (color << 8) + rgb;
     color = (color << 8) + rgb;
 
-    pxl.color = color_lerp(color, pxl.color, 0.5);
+    match col_mode {
+        Lerp => pxl.color = color_lerp(color, pxl.color, 0.5),
+        Additive => pxl.color = color_add(pxl.color, color),
+        _ => (),
+    }
 }
 
-fn circle_shader(pxl: &mut Pixel, center: &Point, radius: &f32) {
+fn circle_shader(pxl: &mut Pixel, center: &Point, radius: &f32, col_mode: ColorMode) {
     let distance = center.distance(&pxl.pos);
 
     let in_circle = smooth_step(distance, *radius, *radius - 3.);
@@ -103,7 +113,11 @@ fn circle_shader(pxl: &mut Pixel, center: &Point, radius: &f32) {
     color = (color << 8) + rgb;
     color = (color << 8) + rgb;
 
-    pxl.color = color_lerp(color, pxl.color, 0.5);
+    match col_mode {
+        Lerp => pxl.color = color_lerp(color, pxl.color, 0.5),
+        Additive => pxl.color = color_add(pxl.color, color),
+        _ => (),
+    }
 }
 
 fn step(value: f32, edge: f32) -> f32 {
@@ -131,7 +145,22 @@ fn color_lerp(color_0: u32, color_1: u32, weight: f32) -> u32 {
             let green_lp = (green_0 + weight * (green_1 - green_0)) as u32;
             let blue_lp = (blue_0 + weight * (blue_1 - blue_0)) as u32;
 
-            (255 << 24) + (red_lp << 16) + (green_lp << 8) + blue_lp
+            (red_lp << 16) + (green_lp << 8) + blue_lp
+        }
+    }
+}
+
+fn color_add(color_0: u32, color_1: u32) -> u32 {
+    match (color_0, color_1) {
+        (0, 0) => 0,
+        (0, _) => color_1,
+        (_, 0) => color_0,
+        _ => {
+            let red_add = (((color_0 >> 16) & 0xff) + ((color_1 >> 16) & 0xff)).clamp(0, 255);
+            let green_add = (((color_0 >> 8) & 0xff) + ((color_1 >> 8) & 0xff)).clamp(0, 255);
+            let blue_add = ((color_0 & 0xff) + (color_1 & 0xff)).clamp(0, 255);
+
+            (red_add << 16) + (green_add << 8) + blue_add
         }
     }
 }
@@ -171,8 +200,13 @@ struct Point {
 
 impl Point {
     fn distance(&self, point: &Point) -> f32 {
-        let d_x = (self.x - point.x) as f32;
-        let d_y = (self.y - point.y) as f32;
+        let d_x = self.x as f32 - point.x as f32;
+        let d_y = self.y as f32 - point.y as f32;
         (d_x * d_x + d_y * d_y).sqrt()
     }
+}
+
+enum ColorMode {
+    Lerp,
+    Additive,
 }
