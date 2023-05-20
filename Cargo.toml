@@ -10,6 +10,6 @@ opt-level = 0
 opt-level = 3
 
 [dependencies]
-softbuffer = "0.2.0"
-winit = "0.27.5"
+softbuffer = ">=0.2.0"
+winit = ">=0.27.5"
 colored = "2"
