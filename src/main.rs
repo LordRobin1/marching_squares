@@ -3,6 +3,7 @@
 
 // use colored::*;
 use softbuffer::GraphicsContext;
+use std::time::{Duration, Instant};
 use winit::dpi::PhysicalSize;
 use winit::event::{Event, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
@@ -13,55 +14,82 @@ fn main() {
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new().build(&event_loop).unwrap();
     let mut graphics_context = unsafe { GraphicsContext::new(&window, &window) }.unwrap();
+    let mut fps: u128 = 0;
+    let mut start = Instant::now();
+    let mut delta_time = Default::default();
+    let mut last_len = 0;
+
+    let mut cursor = Point { x: 0, y: 0 };
 
     event_loop.run(move |event, _, control_flow| {
-        *control_flow = ControlFlow::Wait;
+        *control_flow = ControlFlow::Poll;
 
         match event {
-            Event::RedrawRequested(window_id) if window.id() == window_id => {
+            Event::MainEventsCleared => {
+                start = Instant::now();
+
                 let size = window.inner_size();
-                render(&mut graphics_context, &size);
+                render(&mut graphics_context, &size, &cursor);
+
+                // FPS
+                delta_time = start.elapsed();
+                print!("\r");
+                // last_len = fps.to_string().len();
+                fps = 1_000_000 / delta_time.as_micros();
+                print!(
+                    "FPS: {}, Cursor: {}, {}{}",
+                    fps,
+                    cursor.x,
+                    cursor.y,
+                    " ".repeat(50),
+                );
             }
-            Event::MainEventsCleared => {}
             Event::WindowEvent {
                 event: WindowEvent::CloseRequested,
                 window_id,
             } if window_id == window.id() => {
                 *control_flow = ControlFlow::Exit;
             }
+            Event::WindowEvent {
+                window_id,
+                event:
+                    WindowEvent::CursorMoved {
+                        device_id,
+                        position,
+                        modifiers,
+                    },
+            } if window_id == window.id() => {
+                (cursor.x, cursor.y) = (position.x as u32, position.y as u32);
+            }
             _ => {}
         }
     });
 }
 
-fn render(context: &mut GraphicsContext, size: &PhysicalSize<u32>) {
+fn render(context: &mut GraphicsContext, size: &PhysicalSize<u32>, cursor: &Point) {
     let mut buffer = vec![0; (size.width * size.height) as usize];
-    shaders(&mut buffer, size);
+    shaders(&mut buffer, size, cursor);
     context.set_buffer(&buffer, size.width as u16, size.height as u16);
 }
 
-fn shaders(buffer: &mut [u32], size: &PhysicalSize<u32>) {
+fn shaders(buffer: &mut [u32], size: &PhysicalSize<u32>, cursor: &Point) {
     let (width, height) = (size.width, size.height);
     let mut pxl: Pixel;
-    let mid = Point {
-        x: size.width / 2,
-        y: size.height / 2,
-    };
-    let circle = Point {
-        x: mid.x - 150, // might overflow
-        y: mid.y,
-    };
-    let ring = Point {
-        x: mid.x + 150,
-        y: mid.y,
-    };
-    let ring1 = Point {
-        x: mid.x + 100,
-        y: mid.y,
-    };
+    let circle = cursor;
+    // let mid = Point {
+    //     x: size.width / 2,
+    //     y: size.height / 2,
+    // };
+    // let ring = Point {
+    //     x: mid.x + 150,
+    //     y: mid.y,
+    // };
+    // let ring1 = Point {
+    //     x: mid.x + 100,
+    //     y: mid.y,
+    // };
+    // let thickness = 10.0;
     let radius = 100.0;
-    let thickness = 10.0;
-    let index: i32;
 
     for y in 0..height {
         for x in 0..width {
@@ -69,9 +97,9 @@ fn shaders(buffer: &mut [u32], size: &PhysicalSize<u32>) {
                 pos: Point { x, y },
                 color: 0x00,
             };
-            circle_shader(&mut pxl, &circle, &radius, ColorMode::Lerp);
-            ring_shader(&mut pxl, &ring, &radius, &thickness, ColorMode::Additive);
-            ring_shader(&mut pxl, &ring1, &radius, &thickness, ColorMode::Additive);
+            circle_shader(&mut pxl, circle, &radius, ColorMode::Lerp);
+            // ring_shader(&mut pxl, &ring, &radius, &thickness, ColorMode::Additive);
+            // ring_shader(&mut pxl, &ring1, &radius, &thickness, ColorMode::Additive);
 
             buffer[(y * width + x) as usize] = pxl.color;
         }
