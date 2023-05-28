@@ -90,24 +90,59 @@ fn shaders(buffer: &mut [u32], size: &PhysicalSize<u32>, cursor: &Point) {
     };
     // let thickness = 10.0;
     let radius = 100.0;
-    let r = 0xff0000;
-    let g = 0xff00;
-    let b = 0xff;
+    let mut r = Color {
+        r: 255,
+        g: 0,
+        b: 0,
+        a: 255,
+    };
+    let mut g = Color {
+        r: 0,
+        g: 255,
+        b: 0,
+        a: 255,
+    };
+    let mut b = Color {
+        r: 0,
+        g: 0,
+        b: 255,
+        a: 255,
+    };
 
     for y in 0..height {
         for x in 0..width {
             pxl = Pixel {
                 pos: Point { x, y },
-                color: 0x00,
+                color: Color {
+                    ..Default::default()
+                },
             };
-            circle_shader(&mut pxl, circ_1, &radius, &r, ColorMode::Lerp);
-            circle_shader(&mut pxl, circ_2, &radius, &g, ColorMode::Lerp);
-            circle_shader(&mut pxl, circ_3, &radius, &b, ColorMode::Lerp);
+            circle_shader(&mut pxl, circ_1, &radius, &mut r, ColorMode::Lerp);
+            circle_shader(&mut pxl, circ_2, &radius, &mut g, ColorMode::Lerp);
+            circle_shader(&mut pxl, circ_3, &radius, &mut b, ColorMode::Lerp);
             // ring_shader(&mut pxl, &ring, &radius, &thickness, ColorMode::Additive);
             // ring_shader(&mut pxl, &ring1, &radius, &thickness, ColorMode::Additive);
 
-            buffer[(y * width + x) as usize] = pxl.color;
+            buffer[(y * width + x) as usize] = pxl.color.as_u32();
         }
+    }
+}
+
+fn circle_shader(
+    pxl: &mut Pixel,
+    center: &Point,
+    radius: &f32,
+    color: &mut Color,
+    col_mode: ColorMode,
+) {
+    let distance = center.distance(&pxl.pos);
+
+    let in_circle = smooth_step(distance, *radius, *radius - 3.);
+
+    match col_mode {
+        Lerp => pxl.color.lerp(color, in_circle),
+        Additive => pxl.color.add(color),
+        _ => (),
     }
 }
 
@@ -116,34 +151,18 @@ fn ring_shader(
     center: &Point,
     radius: &f32,
     thickness: &f32,
+    color: &mut Color,
     col_mode: ColorMode,
 ) {
     let distance = center.distance(&pxl.pos);
 
     let in_circle = smooth_step(distance, *radius, *radius - 3.);
     let in_ring = 1. - smooth_step(distance, (*radius - thickness), (*radius - thickness) - 3.);
-
-    let rgb = (255.0 * in_circle * in_ring) as u32;
-
-    let mut color = rgb;
-    color = (color << 8) + rgb;
-    color = (color << 8) + rgb;
+    let weight = in_circle * in_ring;
 
     match col_mode {
-        Lerp => pxl.color = color_lerp(color, pxl.color, 0.5),
-        Additive => pxl.color = color_add(pxl.color, color),
-        _ => (),
-    }
-}
-
-fn circle_shader(pxl: &mut Pixel, center: &Point, radius: &f32, color: &u32, col_mode: ColorMode) {
-    let distance = center.distance(&pxl.pos);
-
-    let in_circle = smooth_step(distance, *radius, *radius - 3.);
-
-    match col_mode {
-        Lerp => pxl.color = color_lerp(pxl.color, *color, in_circle),
-        Additive => pxl.color = color_add(pxl.color, *color),
+        Lerp => pxl.color.lerp(color, weight),
+        Additive => pxl.color.add(color),
         _ => (),
     }
 }
@@ -161,43 +180,13 @@ fn smooth_step(value: f32, edge_0: f32, edge_1: f32) -> f32 {
     x * x * (3. - 2. * x)
 }
 
-fn color_lerp(color_0: u32, color_1: u32, weight: f32) -> u32 {
-    match (color_0, color_1) {
-        (0, 0) => 0,
-        _ => {
-            let (red_0, green_0, blue_0) = to_rgb(color_0);
-            let (red_1, green_1, blue_1) = to_rgb(color_1);
-
-            let red_lp = (red_0 + weight * (red_1 - red_0)) as u32;
-            let green_lp = (green_0 + weight * (green_1 - green_0)) as u32;
-            let blue_lp = (blue_0 + weight * (blue_1 - blue_0)) as u32;
-
-            (red_lp << 16) + (green_lp << 8) + blue_lp
-        }
+fn as_rgb(color: u32) -> Color {
+    Color {
+        r: ((color >> 16) & 0xff) as u8,
+        g: ((color >> 8) & 0xff) as u8,
+        b: (color & 0xff) as u8,
+        a: 255, // default value for alpha, note that softbuffer doesn't have alpha so it's not represented in final u32
     }
-}
-
-fn color_add(color_0: u32, color_1: u32) -> u32 {
-    match (color_0, color_1) {
-        (0, 0) => 0,
-        (0, _) => color_1,
-        (_, 0) => color_0,
-        _ => {
-            let red_add = (((color_0 >> 16) & 0xff) + ((color_1 >> 16) & 0xff)).clamp(0, 255);
-            let green_add = (((color_0 >> 8) & 0xff) + ((color_1 >> 8) & 0xff)).clamp(0, 255);
-            let blue_add = ((color_0 & 0xff) + (color_1 & 0xff)).clamp(0, 255);
-
-            (red_add << 16) + (green_add << 8) + blue_add
-        }
-    }
-}
-
-fn to_rgb(color: u32) -> (f32, f32, f32) {
-    let red = (color >> 16) & 0xff;
-    let green = (color >> 8) & 0xff;
-    let blue = color & 0xff;
-
-    (red as f32, green as f32, blue as f32)
 }
 
 // not adapted to new shader system yet
@@ -213,13 +202,13 @@ fn dist_to_center(pxl: &Pixel, width: &u32, height: &u32) -> f32 {
     distance / max_dist
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 struct Pixel {
     pos: Point,
-    color: u32,
+    color: Color,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 struct Point {
     x: u32,
     y: u32,
@@ -241,4 +230,65 @@ impl Point {
 enum ColorMode {
     Lerp,
     Additive,
+}
+
+/// rgb as u8s
+/// a is pseudo value for color blending
+/// color will finally be black if a == 0
+#[derive(Debug, Default, Copy, Clone)]
+struct Color {
+    r: u8,
+    g: u8,
+    b: u8,
+    a: u8,
+}
+
+impl Color {
+    /// Will return 0 if alpha == 0
+    fn as_u32(&self) -> u32 {
+        if self.a == 0 {
+            0
+        } else {
+            let mut color: u32 = self.r as u32;
+            color = (color << 8) + self.g as u32;
+            color = (color << 8) + self.b as u32;
+            color
+        }
+    }
+    fn lerp(&mut self, color: &Color, weight: f32) {
+        match (self.a, color.a) {
+            (0, 0) => (),
+            (0, _) => {
+                //println!("0, _: color.r == {}", color.r);
+                self.r = (color.r as f32 * weight) as u8;
+                self.g = (color.g as f32 * weight) as u8;
+                self.b = (color.b as f32 * weight) as u8;
+                self.a = color.a;
+            }
+            (_, 0) => {
+                self.r = (self.r as f32 * (1. - weight)) as u8;
+                self.g = (self.g as f32 * (1. - weight)) as u8;
+                self.b = (self.b as f32 * (1. - weight)) as u8;
+            }
+            _ => {
+                self.r = (self.r as f32 + weight * color.r.saturating_sub(self.r) as f32) as u8;
+                self.g = (self.g as f32 + weight * color.g.saturating_sub(self.g) as f32) as u8;
+                self.b = (self.b as f32 + weight * color.b.saturating_sub(self.b) as f32) as u8;
+                self.a = (self.a as f32 + weight * color.a.saturating_sub(self.a) as f32) as u8;
+            }
+        }
+    }
+    fn add(&mut self, color: &Color) {
+        match (self.a, color.a) {
+            (0, 0) => (),
+            (0, _) => *self = *color,
+            (_, 0) => (),
+            _ => {
+                self.r = self.r.saturating_add(color.r);
+                self.g = self.g.saturating_add(color.g);
+                self.b = self.b.saturating_add(color.b);
+                self.a = self.a.saturating_add(color.a);
+            }
+        }
+    }
 }
