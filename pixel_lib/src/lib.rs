@@ -55,14 +55,15 @@ impl Color {
     pub fn lerp(&mut self, color: &Color, weight: f32) {
         let w = weight.clamp(0.0, 1.);
         match (self.a.round() as u32, color.a.round() as u32) {
-            // (0, 0) => (),
-            // (0, _) => {
-            //     //println!("0, _: color.r == {}", color.r);
-            //     self.r = w * color.r;
-            //     self.g = w * color.g;
-            //     self.b = w * color.b;
-            //     // self.a = color.a;
-            // }
+            (0, 0) => (),
+            (0, _) => {
+                //println!("0, _: color.r == {}", color.r);
+                self.r = w * color.r;
+                self.g = w * color.g;
+                self.b = w * color.b;
+                self.a = color.a;
+            }
+            // not sure about this one
             // (_, 0) => {
             //     self.r = self.r * (1. - w);
             //     self.g = self.g * (1. - w);
