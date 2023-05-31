@@ -88,9 +88,12 @@ impl Color {
                 self.r += color.r;
                 self.g += color.g;
                 self.b += color.b;
-                self.a += color.b;
+                self.a += color.a;
             }
         }
+    }
+    pub fn factorize(&mut self, factor: f32) {
+        self.a *= factor;
     }
 }
 
