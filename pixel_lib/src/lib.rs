@@ -24,12 +24,14 @@ impl Point {
 }
 
 pub enum ColorMode {
+    /// will lerp by provided value
     Lerp(f32),
+    /// will lerp by alpha
+    Overlay,
     Additive,
 }
 
-/// rgb as f32s (could use u8s but then there's many casts)
-/// a is pseudo value for color blending
+/// rgb as f32s (expects values from 0 - 1)
 /// color will finally be black if a == 0
 #[derive(Debug, Default, Copy, Clone)]
 pub struct Color {
@@ -45,23 +47,23 @@ impl Color {
         if self.a == 0. {
             0
         } else {
-            let mut color: u32 = self.r.round().clamp(0., 255.) as u32;
-            color = (color << 8) + self.g.round().clamp(0., 255.) as u32;
-            color = (color << 8) + self.b.round().clamp(0., 255.) as u32;
+            let mut color: u32 = (self.r * 255. * self.a) as u32;
+            color = (color << 8) + (self.g * 255. * self.a) as u32;
+            color = (color << 8) + (self.b * 255. * self.a) as u32;
             color
         }
     }
     /// Lerps colors
     pub fn lerp(&mut self, color: &Color, weight: f32) {
         let w = weight.clamp(0.0, 1.);
-        match (self.a.round() as u32, color.a.round() as u32) {
-            (0, 0) => (),
-            (0, _) => {
+        match (self.a == 0., color.a == 0.) {
+            (true, true) => (),
+            (true, _) => {
                 //println!("0, _: color.r == {}", color.r);
                 self.r = w * color.r;
                 self.g = w * color.g;
                 self.b = w * color.b;
-                self.a = color.a;
+                self.a = w * color.a;
             }
             // not sure about this one
             // (_, 0) => {
@@ -70,36 +72,33 @@ impl Color {
             //     self.b = self.b * (1. - w);
             // }
             _ => {
-                self.r = self.r + w * (color.r - self.r);
-                self.g = self.g + w * (color.g - self.g);
-                self.b = self.b + w * (color.b - self.b);
+                self.r += w * (color.r - self.r);
+                self.g += w * (color.g - self.g);
+                self.b += w * (color.b - self.b);
+                self.a += w * (color.a - self.a);
             }
         }
     }
     pub fn add(&mut self, color: &Color) {
-        match (self.a.round() as u32, color.a.round() as u32) {
-            (0, 0) => (),
-            (0, _) => *self = *color,
-            (_, 0) => (),
+        match (self.a == 0., color.a == 0.) {
+            (true, true) => (),
+            (true, _) => *self = *color,
+            (_, true) => (),
             _ => {
-                self.r = self.r + color.r;
-                self.g = self.g + color.g;
-                self.b = self.b + color.b;
+                self.r += color.r;
+                self.g += color.g;
+                self.b += color.b;
+                self.a += color.b;
             }
         }
-    }
-    pub fn factorize(&mut self, factor: f32) {
-        self.r = self.r * factor;
-        self.g = self.g * factor;
-        self.b = self.b * factor;
     }
 }
 
 pub fn as_rgb(color: u32) -> Color {
     Color {
-        r: ((color >> 16) & 0xff) as f32,
-        g: ((color >> 8) & 0xff) as f32,
-        b: (color & 0xff) as f32,
-        a: 255., // default value for alpha, note that softbuffer doesn't have alpha so it's not represented in final u32
+        r: ((color >> 16) & 0xff) as f32 / 255.,
+        g: ((color >> 8) & 0xff) as f32 / 255.,
+        b: (color & 0xff) as f32 / 255.,
+        a: 1., // default value for alpha, note that softbuffer doesn't have alpha so it's not represented in final u32
     }
 }
