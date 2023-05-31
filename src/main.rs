@@ -75,6 +75,7 @@ fn shaders(buffer: &mut [u32], size: &PhysicalSize<u32>, cursor: &Point) {
     let (width, height) = (size.width, size.height);
     let mut pxl: Pixel;
     let circ_1 = cursor;
+    // let circ_1 = &Point { x: 0, y: 0 }; // debug position
     let mid = Point {
         x: size.width / 2,
         y: size.height / 2,
@@ -90,22 +91,22 @@ fn shaders(buffer: &mut [u32], size: &PhysicalSize<u32>, cursor: &Point) {
     // let thickness = 10.0;
     let radius = 100.0;
     let mut r = Color {
-        r: 255.,
+        r: 1.,
         g: 0.,
         b: 0.,
-        a: 255.,
+        a: 1.,
     };
     let mut g = Color {
         r: 0.,
-        g: 255.,
+        g: 1.,
         b: 0.,
-        a: 255.,
+        a: 1.,
     };
     let mut b = Color {
         r: 0.,
         g: 0.,
-        b: 255.,
-        a: 255.,
+        b: 1.,
+        a: 1.,
     };
 
     for y in 0..height {
@@ -116,9 +117,9 @@ fn shaders(buffer: &mut [u32], size: &PhysicalSize<u32>, cursor: &Point) {
                     ..Default::default()
                 },
             };
-            circle_shader(&mut pxl, circ_2, &radius, g, ColorMode::Lerp(0.5));
-            circle_shader(&mut pxl, circ_3, &radius, b, ColorMode::Lerp(0.5));
-            circle_shader(&mut pxl, circ_1, &radius, r, ColorMode::Lerp(0.5));
+            circle_shader(&mut pxl, circ_3, &radius, b, ColorMode::Overlay);
+            circle_shader(&mut pxl, circ_2, &radius, g, ColorMode::Overlay);
+            circle_shader(&mut pxl, circ_1, &radius, r, ColorMode::Overlay);
             // ring_shader(&mut pxl, &ring, &radius, &thickness, ColorMode::Additive);
             // ring_shader(&mut pxl, &ring1, &radius, &thickness, ColorMode::Additive);
 
@@ -139,6 +140,10 @@ fn circle_shader(
     let in_circle = smooth_step(distance, *radius, *radius - 3.);
 
     match col_mode {
+        Overlay => {
+            color.lerp(&pxl.color, 1. - color.a * in_circle);
+            pxl.color = color;
+        }
         Lerp(x) => {
             color.lerp(&pxl.color, 1. - x * in_circle);
             pxl.color = color;
@@ -156,7 +161,7 @@ fn ring_shader(
     center: &Point,
     radius: &f32,
     thickness: &f32,
-    color: &mut Color,
+    mut color: Color,
     col_mode: ColorMode,
 ) {
     let distance = center.distance(&pxl.pos);
@@ -166,8 +171,12 @@ fn ring_shader(
     let weight = in_circle * in_ring;
 
     match col_mode {
-        Lerp(x) => pxl.color.lerp(color, weight),
-        Additive => pxl.color.add(color),
+        Overlay => {
+            color.lerp(&pxl.color, 1. - color.a * in_circle);
+            pxl.color = color;
+        }
+        Lerp(x) => pxl.color.lerp(&color, 1. - x * weight),
+        Additive => pxl.color.add(&color),
         _ => (),
     }
 }
