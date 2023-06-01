@@ -4,7 +4,7 @@ pub struct Pixel {
     pub color: Color,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Copy, Clone)]
 pub struct Point {
     pub x: u32,
     pub y: u32,
