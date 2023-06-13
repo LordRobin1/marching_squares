@@ -12,5 +12,6 @@ opt-level = 3
 [dependencies]
 softbuffer = ">=0.2.0"
 winit = ">=0.27.5"
+pixels = ">=0.13.0"
 colored = "2"
 pixel_lib = { path = "/home/robin/code/metaballs/pixel_lib" }
