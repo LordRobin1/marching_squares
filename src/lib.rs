@@ -25,7 +25,7 @@ pub async fn run() {
         *control_flow = ControlFlow::Poll;
 
         match event {
-            Event::RedrawRequested(window_id) if window_id == state.window.id() => {
+            Event::MainEventsCleared => {
                 let start = Instant::now();
 
                 state.update();
@@ -63,11 +63,9 @@ pub async fn run() {
                         WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
                             state.resize(**new_inner_size);
                         }
-                        WindowEvent::CursorMoved {
-                            device_id,
-                            position,
-                            ..
-                        } if window_id == state.window().id() => {
+                        WindowEvent::CursorMoved { position, .. }
+                            if window_id == state.window().id() =>
+                        {
                             (cursor.x, cursor.y) = (position.x as u32, position.y as u32);
                         }
                         WindowEvent::CloseRequested if window_id == state.window().id() => {
@@ -90,6 +88,8 @@ struct State {
     size: winit::dpi::PhysicalSize<u32>,
     window: Window,
     render_pipeline: wgpu::RenderPipeline,
+    render_pipeline_challenge: wgpu::RenderPipeline,
+    color: bool,
 }
 
 impl State {
@@ -193,6 +193,44 @@ impl State {
             multiview: None,
         });
 
+        let shader = device.create_shader_module(wgpu::include_wgsl!("challenge.wgsl"));
+
+        let render_pipeline_challenge =
+            device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+                label: Some("Render Pipeline"),
+                layout: Some(&render_pipeline_layout),
+                vertex: wgpu::VertexState {
+                    module: &shader,
+                    entry_point: "vs_main",
+                    buffers: &[],
+                },
+                fragment: Some(wgpu::FragmentState {
+                    module: &shader,
+                    entry_point: "fs_main",
+                    targets: &[Some(wgpu::ColorTargetState {
+                        format: config.format,
+                        blend: Some(wgpu::BlendState::REPLACE),
+                        write_mask: wgpu::ColorWrites::ALL,
+                    })],
+                }),
+                primitive: wgpu::PrimitiveState {
+                    topology: wgpu::PrimitiveTopology::TriangleList,
+                    strip_index_format: None,
+                    front_face: wgpu::FrontFace::Ccw,
+                    cull_mode: Some(wgpu::Face::Back),
+                    polygon_mode: wgpu::PolygonMode::Fill,
+                    unclipped_depth: false,
+                    conservative: false,
+                },
+                depth_stencil: None,
+                multisample: wgpu::MultisampleState {
+                    count: 1,
+                    mask: !0,
+                    alpha_to_coverage_enabled: false,
+                },
+                multiview: None,
+            });
+
         Self {
             window,
             surface,
@@ -201,6 +239,8 @@ impl State {
             config,
             size,
             render_pipeline,
+            render_pipeline_challenge,
+            color: false,
         }
     }
 
@@ -218,7 +258,21 @@ impl State {
     }
 
     fn input(&mut self, event: &WindowEvent) -> bool {
-        false
+        match event {
+            WindowEvent::KeyboardInput {
+                input:
+                    KeyboardInput {
+                        state: ElementState::Pressed,
+                        virtual_keycode: Some(VirtualKeyCode::Space),
+                        ..
+                    },
+                ..
+            } => {
+                self.color = !self.color;
+                true
+            }
+            _ => false,
+        }
     }
 
     fn update(&mut self) {}
@@ -252,7 +306,11 @@ impl State {
             })],
             depth_stencil_attachment: None,
         });
-        render_pass.set_pipeline(&self.render_pipeline);
+        if self.color {
+            render_pass.set_pipeline(&self.render_pipeline_challenge)
+        } else {
+            render_pass.set_pipeline(&self.render_pipeline);
+        }
         render_pass.draw(0..3, 0..1);
         drop(render_pass);
 
