@@ -12,6 +12,7 @@ opt-level = 3
 [dependencies]
 winit = ">=0.27.5"
 wgpu = "0.16"
+bytemuck = { version = "1.13.1", features = [ "derive" ] }
 pollster = "0.3.0"
 env_logger = "0.10.0"
 log = ">=0.4"
