@@ -1,6 +1,5 @@
 use pixel_lib::*;
 use std::time::Instant;
-use wgpu;
 use wgpu::util::DeviceExt;
 use winit::window::Window;
 use winit::{
@@ -111,18 +110,24 @@ impl Vertex {
 
 const VERTICES: &[Vertex] = &[
     Vertex {
-        position: [0.0, 0.5, 0.0],
+        position: [1.0, 1.0, 0.0],
         color: [1.0, 0.0, 0.0],
     },
     Vertex {
-        position: [-0.5, -0.5, 0.0],
+        position: [-1.0, -1.0, 0.0],
         color: [0.0, 1.0, 0.0],
     },
     Vertex {
-        position: [0.5, -0.5, 0.0],
+        position: [1.0, -1.0, 0.0],
         color: [0.0, 0.0, 1.0],
     },
+    Vertex {
+        position: [-1.0, 1.0, 0.0],
+        color: [0.0, 1.0, 0.0],
+    },
 ];
+
+const INDECES: &[u16] = &[0, 1, 2, 0, 3, 1];
 
 struct State {
     surface: wgpu::Surface,
@@ -133,7 +138,8 @@ struct State {
     window: Window,
     render_pipeline: wgpu::RenderPipeline,
     vertex_buffer: wgpu::Buffer,
-    num_vertices: u32,
+    index_buffer: wgpu::Buffer,
+    num_indeces: u32,
 }
 
 impl State {
@@ -243,6 +249,12 @@ impl State {
             usage: wgpu::BufferUsages::VERTEX,
         });
 
+        let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Index Buffer"),
+            contents: bytemuck::cast_slice(INDECES),
+            usage: wgpu::BufferUsages::INDEX,
+        });
+
         Self {
             window,
             surface,
@@ -252,7 +264,8 @@ impl State {
             size,
             render_pipeline,
             vertex_buffer,
-            num_vertices: VERTICES.len() as u32,
+            index_buffer,
+            num_indeces: INDECES.len() as u32,
         }
     }
 
@@ -322,7 +335,8 @@ impl State {
         render_pass.set_pipeline(&self.render_pipeline);
 
         render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-        render_pass.draw(0..self.num_vertices, 0..1);
+        render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
+        render_pass.draw_indexed(0..self.num_indeces, 0, 0..1);
         drop(render_pass);
 
         self.queue.submit(std::iter::once(encoder.finish()));
