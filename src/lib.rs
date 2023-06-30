@@ -17,8 +17,26 @@ pub async fn run() {
     // cursor
     let mut cursor = Point { x: 0, y: 0 };
 
-    let mut state = State::new(window).await;
+    let balls = &mut [
+        Vertex {
+            position: [1.0, 1.0, 0.0],
+            color: [1.0, 0.0, 0.0],
+        },
+        Vertex {
+            position: [-1.0, -1.0, 0.0],
+            color: [0.0, 1.0, 0.0],
+        },
+        Vertex {
+            position: [1.0, -1.0, 0.0],
+            color: [0.0, 0.0, 1.0],
+        },
+        Vertex {
+            position: [-1.0, 1.0, 0.0],
+            color: [0.0, 1.0, 0.0],
+        },
+    ];
 
+    let mut state = State::new(window, balls).await;
     // let size = window.inner_size();
 
     event_loop.run(move |event, _, control_flow| {
@@ -103,6 +121,11 @@ impl Vertex {
                     shader_location: 1,
                     format: wgpu::VertexFormat::Float32x3,
                 },
+                wgpu::VertexAttribute {
+                    offset: std::mem::size_of::<[f32; 3]>() as wgpu::BufferAddress,
+                    shader_location: 2,
+                    format: wgpu::VertexFormat::Float32x3,
+                },
             ],
         }
     }
@@ -139,11 +162,12 @@ struct State {
     render_pipeline: wgpu::RenderPipeline,
     vertex_buffer: wgpu::Buffer,
     index_buffer: wgpu::Buffer,
-    num_indeces: u32,
+    num_indices: u32,
+    balls: wgpu::Buffer,
 }
 
 impl State {
-    async fn new(window: Window) -> Self {
+    async fn new(window: Window, balls: &mut [Vertex]) -> Self {
         let size = window.inner_size();
 
         // The instance is a handle to the GPU
@@ -255,6 +279,12 @@ impl State {
             usage: wgpu::BufferUsages::INDEX,
         });
 
+        let balls = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Balls Buffer"),
+            contents: bytemuck::cast_slice(balls),
+            usage: wgpu::BufferUsages::STORAGE,
+        });
+
         Self {
             window,
             surface,
@@ -265,7 +295,8 @@ impl State {
             render_pipeline,
             vertex_buffer,
             index_buffer,
-            num_indeces: INDECES.len() as u32,
+            num_indices: INDECES.len() as u32,
+            balls,
         }
     }
 
@@ -321,10 +352,10 @@ impl State {
                 resolve_target: None,
                 ops: wgpu::Operations {
                     load: wgpu::LoadOp::Clear(wgpu::Color {
-                        r: 0.1,
-                        g: 0.2,
-                        b: 0.3,
-                        a: 1.0,
+                        r: 0.0,
+                        g: 0.0,
+                        b: 0.0,
+                        a: 0.0,
                     }),
                     store: true,
                 },
@@ -336,7 +367,7 @@ impl State {
 
         render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
         render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
-        render_pass.draw_indexed(0..self.num_indeces, 0, 0..1);
+        render_pass.draw_indexed(0..self.num_indices, 0, 0..1);
         drop(render_pass);
 
         self.queue.submit(std::iter::once(encoder.finish()));
