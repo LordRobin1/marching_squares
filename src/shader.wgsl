@@ -1,5 +1,5 @@
 @group(0) @binding(0)
-var input: texture_storage_2d<rgba8unorm, write>;
+var input: texture_2d<f32>;
 
 struct VertexInput {
     @location(0) position: vec3<f32>,
@@ -20,9 +20,9 @@ fn vs_main(model: VertexInput) -> VertexOutput {
 }
 
 @fragment
-fn fs_main(in: VertexOutput) -> @location(0) vec4<u32> {
+fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let coords = vec2<u32>(in.clip_position.xy);
-    let color = textureLoad(input, coords, 0u);
-    color.w = 1u;
+    var color = textureLoad(input, coords, 1);
+    color.w = 1.0;
     return color;
 }

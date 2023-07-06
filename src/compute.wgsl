@@ -12,13 +12,13 @@ var output: texture_storage_2d<rgba8unorm, write>;
 @compute @workgroup_size(16, 16)
 fn cs_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let dim = balls.dimensions;
-    let coords = vec2<i32>(global_id.xy);
+    let coords = global_id.xy;
 
-    if (coords.x >= dim.x || coords.y >= dim.y) {
-        return;
-    }
+//    if (coords.x >= dim.x || coords.y >= dim.y) {
+//        return;
+//    }
 
-    let color = vec3<f32>(0.5, 0.5, 0.5);
+    let color = vec3<f32>(1., 1., 1.);
 
     textureStore(output, coords.xy, vec4<f32>(color, 1.0));
 }
