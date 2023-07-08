@@ -1,6 +1,7 @@
 use pixel_lib::*;
 use std::time::Instant;
 use wgpu::util::DeviceExt;
+use wgpu::TextureFormat;
 use winit::dpi::PhysicalSize;
 use winit::window::Window;
 use winit::{
@@ -156,7 +157,7 @@ const VERTICES: &[Vertex] = &[
     },
 ];
 
-const INDECES: &[u16] = &[0, 1, 2, 0, 3, 1];
+const INDICES: &[u16] = &[0, 1, 2, 0, 3, 1];
 
 struct State {
     surface: wgpu::Surface,
@@ -169,12 +170,8 @@ struct State {
     vertex_buffer: wgpu::Buffer,
     index_buffer: wgpu::Buffer,
     num_indices: u32,
-    compute_pipeline: wgpu::ComputePipeline,
-    texture: wgpu::Texture,
     render_bg: wgpu::BindGroup,
     balls: Balls,
-    balls_buffer: wgpu::Buffer,
-    compute_bg: wgpu::BindGroup,
 }
 
 impl State {
@@ -238,52 +235,32 @@ impl State {
 
         let shader = device.create_shader_module(wgpu::include_wgsl!("shader.wgsl"));
 
+        let balls = Balls::new(size);
+        let balls_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Balls Buffer"),
+            contents: bytemuck::cast_slice(&[balls]),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        });
+
         let render_bg_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             entries: &[wgpu::BindGroupLayoutEntry {
                 binding: 0,
                 visibility: wgpu::ShaderStages::all(),
-                ty: wgpu::BindingType::Texture {
-                    sample_type: wgpu::TextureSampleType::Float { filterable: false },
-                    view_dimension: wgpu::TextureViewDimension::D2,
-                    multisampled: false,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
                 },
                 count: None,
             }],
             label: Some("render bind_group_layout"),
         });
-        let tex_view_desc = wgpu::TextureViewDescriptor {
-            label: Some("texture view descriptor"),
-            format: Some(wgpu::TextureFormat::Rgba8Unorm),
-            dimension: Some(wgpu::TextureViewDimension::D2),
-            aspect: wgpu::TextureAspect::All,
-            base_mip_level: 0,
-            mip_level_count: Some(1),
-            base_array_layer: 0,
-            array_layer_count: Some(1),
-        };
-        let tex_desc = wgpu::TextureDescriptor {
-            label: Some("TextureDescriptor"),
-            size: wgpu::Extent3d {
-                width: size.width,
-                height: size.height,
-                depth_or_array_layers: 1,
-            },
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Rgba8Unorm,
-            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::STORAGE_BINDING,
-            view_formats: &[],
-        };
-
-        let texture = device.create_texture(&tex_desc);
-        let tex_view = texture.create_view(&tex_view_desc);
 
         let render_bg = device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &render_bg_layout,
             entries: &[wgpu::BindGroupEntry {
                 binding: 0,
-                resource: wgpu::BindingResource::TextureView(&tex_view),
+                resource: balls_buffer.as_entire_binding(),
             }],
             label: Some("Render bind_group"),
         });
@@ -307,7 +284,7 @@ impl State {
                 entry_point: "fs_main",
                 targets: &[Some(wgpu::ColorTargetState {
                     format: config.format,
-                    blend: Some(wgpu::BlendState::REPLACE),
+                    blend: Some(wgpu::BlendState::ALPHA_BLENDING),
                     write_mask: wgpu::ColorWrites::ALL,
                 })],
             }),
@@ -337,74 +314,8 @@ impl State {
 
         let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Index Buffer"),
-            contents: bytemuck::cast_slice(INDECES),
+            contents: bytemuck::cast_slice(INDICES),
             usage: wgpu::BufferUsages::INDEX,
-        });
-
-        let balls = Balls::new(size);
-        let balls_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Balls Buffer"),
-            contents: bytemuck::cast_slice(&[balls]),
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-        });
-        let compute_bg_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            entries: &[
-                // input
-                wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                },
-                // output
-                wgpu::BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: wgpu::ShaderStages::all(),
-                    // ty: wgpu::BindingType::Texture {
-                    //     sample_type: wgpu::TextureSampleType::Float { filterable: false },
-                    //     view_dimension: wgpu::TextureViewDimension::D2,
-                    //     multisampled: false,
-                    // },
-                    ty: wgpu::BindingType::StorageTexture {
-                        access: wgpu::StorageTextureAccess::WriteOnly,
-                        format: wgpu::TextureFormat::Rgba8Unorm,
-                        view_dimension: wgpu::TextureViewDimension::D2,
-                    },
-                    count: None,
-                },
-            ],
-            label: Some("compte_bind_group_layout"),
-        });
-        let compute_bg = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &compute_bg_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: balls_buffer.as_entire_binding(),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::TextureView(&tex_view),
-                },
-            ],
-            label: Some("compute_bind_group"),
-        });
-
-        let compute_pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-            label: Some("Compute Pipeline"),
-            layout: Some(
-                &device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                    label: Some("Compute Pipeline Layout"),
-                    bind_group_layouts: &[&compute_bg_layout],
-                    push_constant_ranges: &[],
-                }),
-            ),
-            module: &(device.create_shader_module(wgpu::include_wgsl!("compute.wgsl"))),
-            entry_point: "cs_main",
         });
 
         Self {
@@ -417,13 +328,9 @@ impl State {
             render_pipeline,
             vertex_buffer,
             index_buffer,
-            num_indices: INDECES.len() as u32,
-            compute_pipeline,
-            texture,
+            num_indices: INDICES.len() as u32,
             render_bg,
             balls,
-            balls_buffer,
-            compute_bg,
         }
     }
 
@@ -462,50 +369,35 @@ impl State {
 
     fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
         let output = self.surface.get_current_texture()?;
-        let view = output
-            .texture
-            .create_view(&wgpu::TextureViewDescriptor::default());
+        let view = output.texture.create_view(&wgpu::TextureViewDescriptor {
+            label: Some("Surface texture descriptor"),
+            format: Some(TextureFormat::Bgra8UnormSrgb),
+            dimension: Some(wgpu::TextureViewDimension::D2),
+            aspect: wgpu::TextureAspect::All,
+            base_mip_level: 0,
+            mip_level_count: Some(1),
+            base_array_layer: 0,
+            array_layer_count: Some(1),
+        });
 
-        let mut render_encoder =
-            self.device
-                .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                    label: Some("Render Encoder"),
-                });
-        let mut compute_encoder =
-            self.device
-                .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                    label: Some("Compute Encoder"),
-                });
-
-        {
-            let mut compute_pass =
-                compute_encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
-                    label: Some("Compute Pass"),
-                });
-
-            let (dispatch_w, dispatch_h) =
-                compute_work_group_count((self.size.width, self.size.height), (16, 16));
-
-            compute_pass.set_pipeline(&self.compute_pipeline);
-            compute_pass.set_bind_group(0, &self.compute_bg, &[]);
-
-            compute_pass.dispatch_workgroups(dispatch_w, dispatch_h, 1); // snaz was machen sachen
-        }
-
-        self.queue.submit(std::iter::once(compute_encoder.finish()));
+        let mut encoder = self
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("Render Encoder"),
+            });
 
         {
-            let mut render_pass = render_encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Render Pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                     view: &view,
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: 0.0,
-                            g: 0.0,
-                            b: 0.0,
-                            a: 0.0,
+                            r: 0.2,
+                            g: 0.2,
+                            b: 0.6,
+                            a: 0.,
                         }),
                         store: true,
                     },
@@ -522,19 +414,9 @@ impl State {
             render_pass.draw_indexed(0..self.num_indices, 0, 0..1);
         }
 
-        self.queue.submit(std::iter::once(render_encoder.finish()));
+        self.queue.submit(std::iter::once(encoder.finish()));
         output.present();
 
         Ok(())
     }
-}
-
-fn compute_work_group_count(
-    (width, height): (u32, u32),
-    (workgroup_width, workgroup_height): (u32, u32),
-) -> (u32, u32) {
-    let x = (width + workgroup_width - 1) / workgroup_width;
-    let y = (height + workgroup_height - 1) / workgroup_height;
-
-    (x, y)
 }
