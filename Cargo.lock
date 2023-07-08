@@ -706,7 +706,6 @@ dependencies = [
  "bytemuck",
  "env_logger",
  "log",
- "pixel_lib",
  "pollster",
  "wgpu",
  "winit",
@@ -983,10 +982,6 @@ name = "percent-encoding"
 version = "2.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "478c572c3d73181ff3c2539045f6eb99e5491218eae919370993b890cdbdd98e"
-
-[[package]]
-name = "pixel_lib"
-version = "0.1.0"
 
 [[package]]
 name = "pkg-config"
