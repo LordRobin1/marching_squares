@@ -117,23 +117,21 @@ impl Vertex {
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 struct Balls {
-    size: [u32; 2],
-    positions: [[f32; 4]; 4],
-    strengths: [f32; 4],
-    padding: u64,
+    size: [f32; 2],           // 8 bytes
+    positions: [[f32; 3]; 4], // 48 bytes
+    padding: [u64; 3],        // 8 bytes
 }
 impl Balls {
     fn new(size: PhysicalSize<u32>) -> Self {
         Self {
-            size: [size.width, size.height],
+            size: [size.width as f32, size.height as f32],
             positions: [
-                [0.0, 0.0, 0.0, 1.0],
-                [0.0, 0.5, 0.0, 1.0],
-                [0.0, -0.5, 0.0, 1.0],
-                [-0.5, 0.0, 0.0, 1.0],
+                [0.0, 0.0, 0.3],
+                [0.0, 0.5, 0.3],
+                [0.0, -0.5, 0.3],
+                [-0.5, 0.0, 0.3],
             ],
-            strengths: [1.0, 1.0, 1.0, 1.0],
-            padding: 0,
+            padding: [0, 0, 0],
         }
     }
 }
@@ -164,14 +162,15 @@ struct State {
     device: wgpu::Device,
     queue: wgpu::Queue,
     config: wgpu::SurfaceConfiguration,
-    size: winit::dpi::PhysicalSize<u32>,
+    size: PhysicalSize<u32>,
     window: Window,
     render_pipeline: wgpu::RenderPipeline,
     vertex_buffer: wgpu::Buffer,
     index_buffer: wgpu::Buffer,
     num_indices: u32,
     render_bg: wgpu::BindGroup,
-    balls: Balls,
+    render_bg_layout: wgpu::BindGroupLayout,
+    // balls: Balls,
 }
 
 impl State {
@@ -233,7 +232,8 @@ impl State {
         };
         surface.configure(&device, &config);
 
-        let shader = device.create_shader_module(wgpu::include_wgsl!("shader.wgsl"));
+        let vertex = device.create_shader_module(wgpu::include_wgsl!("vertex.wgsl"));
+        let fragment = device.create_shader_module(wgpu::include_wgsl!("fragment.wgsl"));
 
         let balls = Balls::new(size);
         let balls_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -275,12 +275,12 @@ impl State {
             label: Some("Render Pipeline"),
             layout: Some(&render_pipeline_layout),
             vertex: wgpu::VertexState {
-                module: &shader,
+                module: &vertex,
                 entry_point: "vs_main",
                 buffers: &[Vertex::desc()],
             },
             fragment: Some(wgpu::FragmentState {
-                module: &shader,
+                module: &fragment,
                 entry_point: "fs_main",
                 targets: &[Some(wgpu::ColorTargetState {
                     format: config.format,
@@ -330,7 +330,8 @@ impl State {
             index_buffer,
             num_indices: INDICES.len() as u32,
             render_bg,
-            balls,
+            render_bg_layout,
+            // balls,
         }
     }
 
@@ -338,12 +339,13 @@ impl State {
         &self.window
     }
 
-    fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
+    fn resize(&mut self, new_size: PhysicalSize<u32>) {
         if new_size.width > 0 && new_size.height > 0 {
             self.size = new_size;
             self.config.width = new_size.width;
             self.config.height = new_size.height;
             self.surface.configure(&self.device, &self.config);
+            self.update();
         }
     }
 
@@ -365,7 +367,25 @@ impl State {
         }
     }
 
-    fn update(&mut self) {}
+    fn update(&mut self) {
+        let balls = Balls::new(self.size);
+        let balls_buffer = self
+            .device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("Balls Buffer"),
+                contents: bytemuck::cast_slice(&[balls]),
+                usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            });
+
+        self.render_bg = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &self.render_bg_layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: balls_buffer.as_entire_binding(),
+            }],
+            label: Some("Render bind_group"),
+        });
+    }
 
     fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
         let output = self.surface.get_current_texture()?;
@@ -394,9 +414,9 @@ impl State {
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: 0.2,
-                            g: 0.2,
-                            b: 0.6,
+                            r: 0.,
+                            g: 0.,
+                            b: 0.,
                             a: 0.,
                         }),
                         store: true,

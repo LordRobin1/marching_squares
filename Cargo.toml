@@ -16,3 +16,4 @@ bytemuck = { version = "1.13.1", features = [ "derive" ] }
 pollster = "0.3.0"
 env_logger = "0.10.0"
 log = ">=0.4"
+pixel_lib = { path = "./pixel_lib" }
