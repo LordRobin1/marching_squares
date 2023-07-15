@@ -10,6 +10,11 @@ use winit::{
     window::WindowBuilder,
 };
 
+mod vertex;
+use crate::vertex::*;
+mod balls;
+use crate::balls::*;
+
 pub async fn run() {
     // window setup
     env_logger::init();
@@ -18,6 +23,8 @@ pub async fn run() {
 
     // cursor
     let mut cursor = Point { x: 0, y: 0 };
+    let mut delta_time: f32 = 0.0;
+    let print_fps = false;
 
     let mut state = State::new(window).await;
     // let size = window.inner_size();
@@ -29,28 +36,33 @@ pub async fn run() {
             Event::MainEventsCleared => {
                 let start = Instant::now();
 
-                state.update();
+                state.update(delta_time);
                 match state.render() {
                     Ok(_) => {}
                     // Reconfigure the surface if lost
-                    Err(wgpu::SurfaceError::Lost) => state.resize(state.size),
+                    Err(wgpu::SurfaceError::Lost) => state.resize(state.size, delta_time),
                     // The system is out of memory -> quit
                     Err(wgpu::SurfaceError::OutOfMemory) => *control_flow = ControlFlow::Exit,
                     // All other errors should be resolved by next frame
                     Err(e) => eprintln!("{:?}", e),
                 }
 
+                let time = start.elapsed();
+                delta_time = time.as_micros() as f32 / 1_000_000.0;
+                println!("delta time: {:.}", delta_time);
                 // FPS
-                let delta_time = start.elapsed();
-                print!("\r");
-                let fps = 1_000_000 / delta_time.as_micros();
-                print!(
-                    "FPS: {}, Cursor: {}, {}{}",
-                    fps,
-                    cursor.x,
-                    cursor.y,
-                    " ".repeat(50),
-                );
+                if print_fps {
+                    print!("\r");
+                    let fps = 1_000_000 / time.as_micros();
+                    println!("{}", delta_time == 0.0);
+                    print!(
+                        "FPS: {}, Cursor: {}, {}{}",
+                        fps,
+                        cursor.x,
+                        cursor.y,
+                        " ".repeat(49),
+                    );
+                }
             }
             Event::WindowEvent {
                 ref event,
@@ -59,10 +71,10 @@ pub async fn run() {
                 if !state.input(event) {
                     match event {
                         WindowEvent::Resized(physical_size) => {
-                            state.resize(*physical_size);
+                            state.resize(*physical_size, delta_time);
                         }
                         WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
-                            state.resize(**new_inner_size);
+                            state.resize(**new_inner_size, delta_time);
                         }
                         WindowEvent::CursorMoved { position, .. }
                             if window_id == state.window().id() =>
@@ -81,82 +93,6 @@ pub async fn run() {
     });
 }
 
-#[repr(C)]
-#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
-struct Vertex {
-    position: [f32; 3],
-    color: [f32; 3],
-}
-
-impl Vertex {
-    fn desc() -> wgpu::VertexBufferLayout<'static> {
-        wgpu::VertexBufferLayout {
-            array_stride: std::mem::size_of::<Vertex>() as wgpu::BufferAddress,
-            step_mode: wgpu::VertexStepMode::Vertex,
-            attributes: &[
-                wgpu::VertexAttribute {
-                    offset: 0,
-                    shader_location: 0,
-                    format: wgpu::VertexFormat::Float32x3,
-                },
-                wgpu::VertexAttribute {
-                    offset: std::mem::size_of::<[f32; 3]>() as wgpu::BufferAddress,
-                    shader_location: 1,
-                    format: wgpu::VertexFormat::Float32x3,
-                },
-                wgpu::VertexAttribute {
-                    offset: std::mem::size_of::<[f32; 3]>() as wgpu::BufferAddress,
-                    shader_location: 2,
-                    format: wgpu::VertexFormat::Float32x3,
-                },
-            ],
-        }
-    }
-}
-
-#[repr(C)]
-#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
-struct Balls {
-    size: [f32; 2],           // 8 bytes
-    positions: [[f32; 3]; 4], // 48 bytes
-    padding: [u64; 3],        // 8 bytes
-}
-impl Balls {
-    fn new(size: PhysicalSize<u32>) -> Self {
-        Self {
-            size: [size.width as f32, size.height as f32],
-            positions: [
-                [0.0, 0.0, 0.3],
-                [0.0, 0.5, 0.3],
-                [0.0, -0.5, 0.3],
-                [-0.5, 0.0, 0.3],
-            ],
-            padding: [0, 0, 0],
-        }
-    }
-}
-
-const VERTICES: &[Vertex] = &[
-    Vertex {
-        position: [1.0, 1.0, 0.0],
-        color: [1.0, 0.0, 0.0],
-    },
-    Vertex {
-        position: [-1.0, -1.0, 0.0],
-        color: [0.0, 1.0, 0.0],
-    },
-    Vertex {
-        position: [1.0, -1.0, 0.0],
-        color: [0.0, 0.0, 1.0],
-    },
-    Vertex {
-        position: [-1.0, 1.0, 0.0],
-        color: [0.0, 1.0, 0.0],
-    },
-];
-
-const INDICES: &[u16] = &[0, 1, 2, 0, 3, 1];
-
 struct State {
     surface: wgpu::Surface,
     device: wgpu::Device,
@@ -170,7 +106,7 @@ struct State {
     num_indices: u32,
     render_bg: wgpu::BindGroup,
     render_bg_layout: wgpu::BindGroupLayout,
-    // balls: Balls,
+    balls: Balls,
 }
 
 impl State {
@@ -331,7 +267,7 @@ impl State {
             num_indices: INDICES.len() as u32,
             render_bg,
             render_bg_layout,
-            // balls,
+            balls,
         }
     }
 
@@ -339,14 +275,36 @@ impl State {
         &self.window
     }
 
-    fn resize(&mut self, new_size: PhysicalSize<u32>) {
+    fn resize(&mut self, new_size: PhysicalSize<u32>, delta_time: f32) {
         if new_size.width > 0 && new_size.height > 0 {
             self.size = new_size;
             self.config.width = new_size.width;
             self.config.height = new_size.height;
             self.surface.configure(&self.device, &self.config);
-            self.update();
+            self.balls.resize(new_size);
+            self.update(delta_time);
         }
+    }
+
+    fn update(&mut self, delta_time: f32) {
+        self.balls.update(delta_time);
+        println!("update");
+        let balls_buffer = self
+            .device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("Balls Buffer"),
+                contents: bytemuck::cast_slice(&[self.balls]),
+                usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            });
+
+        self.render_bg = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &self.render_bg_layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: balls_buffer.as_entire_binding(),
+            }],
+            label: Some("Render bind_group"),
+        });
     }
 
     fn input(&mut self, event: &WindowEvent) -> bool {
@@ -365,26 +323,6 @@ impl State {
             }
             _ => false,
         }
-    }
-
-    fn update(&mut self) {
-        let balls = Balls::new(self.size);
-        let balls_buffer = self
-            .device
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("Balls Buffer"),
-                contents: bytemuck::cast_slice(&[balls]),
-                usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-            });
-
-        self.render_bg = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &self.render_bg_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: balls_buffer.as_entire_binding(),
-            }],
-            label: Some("Render bind_group"),
-        });
     }
 
     fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
