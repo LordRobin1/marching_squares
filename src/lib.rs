@@ -49,12 +49,12 @@ pub async fn run() {
 
                 let time = start.elapsed();
                 delta_time = time.as_micros() as f32 / 1_000_000.0;
-                println!("delta time: {:.}", delta_time);
+                // println!("delta time: {:.}", delta_time);
                 // FPS
                 if print_fps {
                     print!("\r");
                     let fps = 1_000_000 / time.as_micros();
-                    println!("{}", delta_time == 0.0);
+                    // println!("{}", delta_time == 0.0);
                     print!(
                         "FPS: {}, Cursor: {}, {}{}",
                         fps,
@@ -288,7 +288,6 @@ impl State {
 
     fn update(&mut self, delta_time: f32) {
         self.balls.update(delta_time);
-        println!("update");
         let balls_buffer = self
             .device
             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
