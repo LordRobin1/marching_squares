@@ -24,7 +24,7 @@ pub async fn run() {
     // cursor
     let mut cursor = Point { x: 0, y: 0 };
     let mut delta_time: f32 = 0.0;
-    let print_fps = false;
+    let print_fps = true;
 
     let mut state = State::new(window).await;
     // let size = window.inner_size();
