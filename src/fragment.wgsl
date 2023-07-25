@@ -20,7 +20,9 @@ fn ratio() -> f32 {
 
 // https://jamie-wong.com/2014/08/19/metaballs-and-marching-squares/
 fn formula(pxl: vec2<f32>, ball: vec3<f32>) -> f32 {
-    return pow(ball.z, 2.) / (pow(pxl.x - ball.x, 2.) + pow(pxl.y - ball.y, 2.));
+    let ratio = ratio();
+    return pow(ball.z, 2.) /
+        (pow(pxl.x * ratio - ball.x * ratio, 2.) + pow(pxl.y - ball.y, 2.));
 }
 
 fn fields(coord: vec2<f32>) -> vec4<f32> {
