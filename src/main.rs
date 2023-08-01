@@ -68,81 +68,50 @@ fn main() {
 }
 
 fn render(context: &mut GraphicsContext, size: &PhysicalSize<u32>, cursor: &Point) {
-    let mut buffer: Arc<Mutex<Vec<u32>>> =
-        Arc::new(Mutex::new(vec![0; (size.width * size.height) as usize]));
+    let mut buffer = vec![0; (size.width * size.height) as usize];
     shaders(&mut buffer, size, cursor);
-    let buf = buffer.lock().unwrap();
-    context.set_buffer(&buf, size.width as u16, size.height as u16);
+    context.set_buffer(&buffer, size.width as u16, size.height as u16);
 }
 
-fn shaders(buffer: &mut Arc<Mutex<Vec<u32>>>, size: &PhysicalSize<u32>, cursor: &Point) {
+fn shaders(buffer: &mut [u32], size: &PhysicalSize<u32>, cursor: &Point) {
     let (width, height) = (size.width, size.height);
     let mut pxl: Pixel;
-    let circ_1 = Arc::new(*cursor);
-    // let circ_1 = Arc::new(Point { x: 0, y: 0 }); // debug position
+    let circ_1 = *cursor;
+    // let circ_1 = Point { x: 0, y: 0 }; // debug position
     let mid = Point {
         x: size.width / 2,
         y: size.height / 2,
     };
-    let circ_2 = Arc::new(Point {
+    let circ_2 = Point {
         x: mid.x + 50,
         y: mid.y,
-    });
-    let circ_3 = Arc::new(Point {
+    };
+    let circ_3 = Point {
         x: mid.x - 50,
         y: mid.y,
-    });
+    };
     // let thickness = 10.0;
-    let radius = Arc::new(100.0);
-    let red = Arc::new(Color {
+    let radius = 100.0;
+    let red = Color {
         r: 1.,
         g: 0.,
         b: 0.,
         a: 0.5,
-    });
-    let green = Arc::new(Color {
+    };
+    let green = Color {
         r: 0.,
         g: 1.,
         b: 0.,
         a: 0.75,
-    });
-    let blue = Arc::new(Color {
+    };
+    let blue = Color {
         r: 0.,
         g: 0.,
         b: 1.,
         a: 1.,
-    });
+    };
 
-    // maybe below code could be shorter, because most of the variables are immutable
-    let buf = Arc::clone(buffer);
-    let r = Arc::clone(&red);
-    let g = Arc::clone(&green);
-    let b = Arc::clone(&blue);
-    let rad = Arc::clone(&radius);
-    let c1 = Arc::clone(&circ_1);
-    let c2 = Arc::clone(&circ_2);
-    let c3 = Arc::clone(&circ_3);
-
-    let handle = thread::spawn(move || {
-        for y in 0..(height / 2) {
-            for x in 0..width {
-                let mut pxl = Pixel {
-                    pos: Point { x, y },
-                    color: Color::default(),
-                };
-                circle_shader(&mut pxl, &c3, &rad, *b, ColorMode::Overlay);
-                circle_shader(&mut pxl, &c2, &rad, *g, ColorMode::Overlay);
-                circle_shader(&mut pxl, &c1, &rad, *r, ColorMode::Overlay);
-                // ring_shader(&mut pxl, &ring, &radius, &thickness, ColorMode::Additive);
-                // ring_shader(&mut pxl, &ring1, &radius, &thickness, ColorMode::Additive);
-
-                let mut buf = buf.lock().unwrap();
-                buf[(y * width + x) as usize] = pxl.color.as_u32();
-            }
-        }
-    });
-
-    for y in (height / 2)..height {
+    for y in 0..height {
         for x in 0..width {
             pxl = Pixel {
                 pos: Point { x, y },
@@ -150,17 +119,15 @@ fn shaders(buffer: &mut Arc<Mutex<Vec<u32>>>, size: &PhysicalSize<u32>, cursor: 
                     ..Default::default()
                 },
             };
-            circle_shader(&mut pxl, &circ_3, &radius, *blue, ColorMode::Overlay);
-            circle_shader(&mut pxl, &circ_2, &radius, *green, ColorMode::Overlay);
-            circle_shader(&mut pxl, &circ_1, &radius, *red, ColorMode::Overlay);
+            circle_shader(&mut pxl, &circ_3, &radius, blue, ColorMode::Overlay);
+            circle_shader(&mut pxl, &circ_2, &radius, green, ColorMode::Overlay);
+            circle_shader(&mut pxl, &circ_1, &radius, red, ColorMode::Overlay);
             // ring_shader(&mut pxl, &ring, &radius, &thickness, ColorMode::Additive);
             // ring_shader(&mut pxl, &ring1, &radius, &thickness, ColorMode::Additive);
 
-            let mut buf = buffer.lock().unwrap();
-            buf[(y * width + x) as usize] = pxl.color.as_u32();
+            buffer[(y * width + x) as usize] = pxl.color.as_u32();
         }
     }
-    handle.join().unwrap();
 }
 
 fn circle_shader(
