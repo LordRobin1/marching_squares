@@ -107,6 +107,7 @@ struct State {
     render_bg: wgpu::BindGroup,
     render_bg_layout: wgpu::BindGroupLayout,
     balls: Balls,
+    update: bool,
 }
 
 impl State {
@@ -268,6 +269,7 @@ impl State {
             render_bg,
             render_bg_layout,
             balls,
+            update: true,
         }
     }
 
@@ -287,7 +289,10 @@ impl State {
     }
 
     fn update(&mut self, delta_time: f32) {
-        self.balls.update(delta_time);
+        if self.update {
+            self.balls.update(delta_time)
+        } else {
+        };
         let balls_buffer = self
             .device
             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -317,7 +322,7 @@ impl State {
                     },
                 ..
             } => {
-                // self.color = !self.color;
+                self.update = !self.update;
                 true
             }
             _ => false,
