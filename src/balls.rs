@@ -42,7 +42,7 @@ impl Ball {
 
 fn flip(velocity: &mut Point, axis: Axis) {
     match axis {
-        Axis::Vertical => (*velocity).x = -(*velocity).x,
-        Axis::Horizontal => (*velocity).y = -(*velocity).y,
+        Axis::Vertical => velocity.x = -velocity.x,
+        Axis::Horizontal => velocity.y = -velocity.y,
     }
 }
