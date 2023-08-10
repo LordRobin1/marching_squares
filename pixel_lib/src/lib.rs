@@ -6,8 +6,8 @@ pub struct Pixel {
 
 #[derive(Debug, Default, Copy, Clone)]
 pub struct Point {
-    pub x: u32,
-    pub y: u32,
+    pub x: f32,
+    pub y: f32,
 }
 
 impl Point {
@@ -20,6 +20,22 @@ impl Point {
         let d_x = self.x as f32 - point.x as f32;
         let d_y = self.y as f32 - point.y as f32;
         (d_x * d_x + d_y * d_y) < range.powf(2.)
+    }
+    pub fn clamp(&mut self, min: f32, max: f32) {
+        self.x = self.x.clamp(min, max);
+        self.y = self.y.clamp(min, max);
+    }
+    pub fn mult(&self, factor: f32) -> Point {
+        Point {
+            x: self.x * factor,
+            y: self.y * factor,
+        }
+    }
+    pub fn add(&self, other: &Point) -> Point {
+        Point {
+            x: self.x + other.x,
+            y: self.y + other.y,
+        }
     }
 }
 
@@ -92,16 +108,23 @@ impl Color {
             }
         }
     }
+    pub fn mult(&mut self, factor: f32) -> Color {
+        Color {
+            r: self.r * factor,
+            g: self.r * factor,
+            b: self.b * factor,
+            a: self.a * factor,
+        }
+    }
     pub fn factorize(&mut self, factor: f32) {
         self.a *= factor;
     }
-}
-
-pub fn as_rgb(color: u32) -> Color {
-    Color {
-        r: ((color >> 16) & 0xff) as f32 / 255.,
-        g: ((color >> 8) & 0xff) as f32 / 255.,
-        b: (color & 0xff) as f32 / 255.,
-        a: 1., // default value for alpha, note that softbuffer doesn't have alpha so it's not represented in final u32
+    pub fn as_rgb(color: u32) -> Color {
+        Color {
+            r: ((color >> 16) & 0xff) as f32 / 255.,
+            g: ((color >> 8) & 0xff) as f32 / 255.,
+            b: (color & 0xff) as f32 / 255.,
+            a: 1., // default value for alpha, note that softbuffer doesn't have alpha so it's not represented in final u32
+        }
     }
 }

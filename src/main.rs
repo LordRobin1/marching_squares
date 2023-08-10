@@ -1,7 +1,7 @@
 #![allow(unused)]
 #![allow(dead_code)]
 
-use pixel_lib::{ColorMode::*, *};
+use pixel_lib::{Color, ColorMode::*, *};
 use softbuffer::GraphicsContext;
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -10,6 +10,9 @@ use winit::dpi::PhysicalSize;
 use winit::event::{Event, WindowEvent, WindowEvent::CursorMoved};
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::WindowBuilder;
+
+mod balls;
+use crate::balls::*;
 
 fn main() {
     let event_loop = EventLoop::new();
@@ -20,7 +23,7 @@ fn main() {
     let mut delta_time = Default::default();
     let mut last_len = 0;
 
-    let mut cursor = Point { x: 0, y: 0 };
+    let mut cursor = Point { x: 0., y: 0. };
 
     event_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Poll;
@@ -60,7 +63,7 @@ fn main() {
                         ..
                     },
             } if window_id == window.id() => {
-                (cursor.x, cursor.y) = (position.x as u32, position.y as u32);
+                (cursor.x, cursor.y) = (position.x as f32, position.y as f32);
             }
             _ => {}
         }
@@ -68,151 +71,92 @@ fn main() {
 }
 
 fn render(context: &mut GraphicsContext, size: &PhysicalSize<u32>, cursor: &Point) {
-    let mut buffer: Arc<Mutex<Vec<u32>>> =
-        Arc::new(Mutex::new(vec![0; (size.width * size.height) as usize]));
+    let mut buffer = vec![0; (size.width * size.height) as usize];
     shaders(&mut buffer, size, cursor);
-    let buf = buffer.lock().unwrap();
-    context.set_buffer(&buf, size.width as u16, size.height as u16);
+    context.set_buffer(&buffer, size.width as u16, size.height as u16);
 }
 
-fn shaders(buffer: &mut Arc<Mutex<Vec<u32>>>, size: &PhysicalSize<u32>, cursor: &Point) {
-    let (width, height) = (size.width, size.height);
+fn shaders(buffer: &mut [u32], size: &PhysicalSize<u32>, cursor: &Point) {
+    let (width, height) = (size.width as f32, size.height as f32);
     let mut pxl: Pixel;
-    let circ_1 = Arc::new(*cursor);
-    // let circ_1 = Arc::new(Point { x: 0, y: 0 }); // debug position
+    let cursor_pos = *cursor;
     let mid = Point {
-        x: size.width / 2,
-        y: size.height / 2,
+        x: width / 2.,
+        y: height / 2.,
     };
-    let circ_2 = Arc::new(Point {
-        x: mid.x + 50,
+    let p1 = Point {
+        x: mid.x + 50.,
         y: mid.y,
-    });
-    let circ_3 = Arc::new(Point {
-        x: mid.x - 50,
+    };
+    let p2 = Point {
+        x: mid.x - 50.,
         y: mid.y,
-    });
-    // let thickness = 10.0;
-    let radius = Arc::new(100.0);
-    let red = Arc::new(Color {
+    };
+    let radius = 100.0;
+    let red = Color {
         r: 1.,
         g: 0.,
         b: 0.,
         a: 0.5,
-    });
-    let green = Arc::new(Color {
+    };
+    let green = Color {
         r: 0.,
         g: 1.,
         b: 0.,
         a: 0.75,
-    });
-    let blue = Arc::new(Color {
+    };
+    let blue = Color {
         r: 0.,
         g: 0.,
         b: 1.,
         a: 1.,
-    });
+    };
+    let mut balls = vec![
+        Ball {
+            position: cursor_pos,
+            radius,
+            velocity: Point { x: 50., y: 50. },
+            color: red,
+        },
+        Ball {
+            position: p1,
+            radius,
+            velocity: Point { x: 80., y: 30. },
+            color: green,
+        },
+        Ball {
+            position: p2,
+            radius,
+            velocity: Point { x: 110., y: -50. },
+            color: blue,
+        },
+    ];
 
-    // maybe below code could be shorter, because most of the variables are immutable
-    let buf = Arc::clone(buffer);
-    let r = Arc::clone(&red);
-    let g = Arc::clone(&green);
-    let b = Arc::clone(&blue);
-    let rad = Arc::clone(&radius);
-    let c1 = Arc::clone(&circ_1);
-    let c2 = Arc::clone(&circ_2);
-    let c3 = Arc::clone(&circ_3);
-
-    let handle = thread::spawn(move || {
-        for y in 0..(height / 2) {
-            for x in 0..width {
-                let mut pxl = Pixel {
-                    pos: Point { x, y },
-                    color: Color::default(),
-                };
-                circle_shader(&mut pxl, &c3, &rad, *b, ColorMode::Overlay);
-                circle_shader(&mut pxl, &c2, &rad, *g, ColorMode::Overlay);
-                circle_shader(&mut pxl, &c1, &rad, *r, ColorMode::Overlay);
-                // ring_shader(&mut pxl, &ring, &radius, &thickness, ColorMode::Additive);
-                // ring_shader(&mut pxl, &ring1, &radius, &thickness, ColorMode::Additive);
-
-                let mut buf = buf.lock().unwrap();
-                buf[(y * width + x) as usize] = pxl.color.as_u32();
-            }
-        }
-    });
-
-    for y in (height / 2)..height {
-        for x in 0..width {
+    for y in 0..height as i32 {
+        for x in 0..width as i32 {
             pxl = Pixel {
-                pos: Point { x, y },
+                pos: Point {
+                    x: x as f32,
+                    y: y as f32,
+                },
                 color: Color {
                     ..Default::default()
                 },
             };
-            circle_shader(&mut pxl, &circ_3, &radius, *blue, ColorMode::Overlay);
-            circle_shader(&mut pxl, &circ_2, &radius, *green, ColorMode::Overlay);
-            circle_shader(&mut pxl, &circ_1, &radius, *red, ColorMode::Overlay);
-            // ring_shader(&mut pxl, &ring, &radius, &thickness, ColorMode::Additive);
-            // ring_shader(&mut pxl, &ring1, &radius, &thickness, ColorMode::Additive);
-
-            let mut buf = buffer.lock().unwrap();
-            buf[(y * width + x) as usize] = pxl.color.as_u32();
+            metal_ball_shader(&mut pxl, &mut balls, ColorMode::Overlay);
+            buffer[(y as f32 * width + x as f32) as usize] = pxl.color.as_u32();
         }
-    }
-    handle.join().unwrap();
-}
-
-fn circle_shader(
-    pxl: &mut Pixel,
-    center: &Point,
-    radius: &f32,
-    mut color: Color,
-    col_mode: ColorMode,
-) {
-    let distance = center.distance(&pxl.pos);
-
-    let in_circle = smooth_step(distance, *radius, *radius - 3.);
-
-    match col_mode {
-        Overlay => {
-            color.lerp(&pxl.color, 1. - color.a * in_circle);
-            pxl.color = color;
-        }
-        Lerp(x) => {
-            color.lerp(&pxl.color, 1. - x * in_circle);
-            pxl.color = color;
-        }
-        Additive => {
-            color.factorize(in_circle);
-            pxl.color.add(&color);
-        }
-        _ => (),
     }
 }
 
-fn ring_shader(
-    pxl: &mut Pixel,
-    center: &Point,
-    radius: &f32,
-    thickness: &f32,
-    mut color: Color,
-    col_mode: ColorMode,
-) {
-    let distance = center.distance(&pxl.pos);
+fn metal_ball_shader(pxl: &mut Pixel, balls: &mut Vec<Ball>, col_mode: ColorMode) {
+    let mut sum: f32 = 0.;
+    for mut ball in balls {
+        let influence = ball.radius.powi(2)
+            / ((pxl.pos.x - ball.position.x).powi(2) + (pxl.pos.y - ball.position.y).powi(2));
+        sum += influence;
 
-    let in_circle = smooth_step(distance, *radius, *radius - 3.);
-    let in_ring = 1. - smooth_step(distance, (*radius - thickness), (*radius - thickness) - 3.);
-    let weight = in_circle * in_ring;
-
-    match col_mode {
-        Overlay => {
-            color.lerp(&pxl.color, 1. - color.a * in_circle);
-            pxl.color = color;
-        }
-        Lerp(x) => pxl.color.lerp(&color, 1. - x * weight),
-        Additive => pxl.color.add(&color),
-        _ => (),
+        pxl.color.add(&ball.color.mult(influence));
     }
 }
 
@@ -230,11 +174,11 @@ fn smooth_step(value: f32, edge_0: f32, edge_1: f32) -> f32 {
     x * x * (3. - 2. * x)
 }
 
-fn dist_to_center(pxl: &Pixel, width: &u32, height: &u32) -> f32 {
-    let origin = Point { x: 0, y: 0 };
+fn dist_to_center(pxl: &Pixel, width: &i32, height: &i32) -> f32 {
+    let origin = Point { x: 0., y: 0. };
     let mid = Point {
-        x: *width / 2,
-        y: *height / 2,
+        x: *width as f32 / 2.,
+        y: *height as f32 / 2.,
     };
     let max_dist = origin.distance(&mid);
 
