@@ -97,13 +97,13 @@ fn shaders(buffer: &mut [u32], size: &PhysicalSize<u32>, cursor: &Point) {
         r: 1.,
         g: 0.,
         b: 0.,
-        a: 0.5,
+        a: 1.,
     };
     let green = Color {
         r: 0.,
         g: 1.,
         b: 0.,
-        a: 0.75,
+        a: 1.,
     };
     let blue = Color {
         r: 0.,
@@ -143,7 +143,7 @@ fn shaders(buffer: &mut [u32], size: &PhysicalSize<u32>, cursor: &Point) {
                     ..Default::default()
                 },
             };
-            metal_ball_shader(&mut pxl, &mut balls, ColorMode::Overlay);
+            metal_ball_shader(&mut pxl, &mut balls, Overlay);
             buffer[(y as f32 * width + x as f32) as usize] = pxl.color.as_u32();
         }
     }
@@ -152,11 +152,21 @@ fn shaders(buffer: &mut [u32], size: &PhysicalSize<u32>, cursor: &Point) {
 fn metal_ball_shader(pxl: &mut Pixel, balls: &mut Vec<Ball>, col_mode: ColorMode) {
     let mut sum: f32 = 0.;
     for mut ball in balls {
-        let influence = ball.radius.powi(2)
-            / ((pxl.pos.x - ball.position.x).powi(2) + (pxl.pos.y - ball.position.y).powi(2));
+        let influence = {
+            (ball.radius.powi(2)
+                / ((pxl.pos.x - ball.position.x).powi(2) + (pxl.pos.y - ball.position.y).powi(2)))
+            .clamp(0., 1.)
+        };
         sum += influence;
-
         pxl.color.add(&ball.color.mult(influence));
+    }
+    if sum < 1. {
+        pxl.color = Color {
+            r: 0.,
+            g: 0.,
+            b: 0.,
+            a: 0.,
+        };
     }
 }
 

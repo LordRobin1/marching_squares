@@ -39,6 +39,16 @@ impl Point {
     }
 }
 
+impl PartialEq for Point {
+    fn eq(&self, other: &Self) -> bool {
+        self.x == other.x && self.y == other.y
+    }
+
+    fn ne(&self, other: &Self) -> bool {
+        !self.eq(other)
+    }
+}
+
 pub enum ColorMode {
     /// will lerp by provided value
     Lerp(f32),
@@ -63,6 +73,27 @@ impl Color {
         if self.a == 0. {
             0
         } else {
+            let range = 0.0..=1.0;
+            assert!(
+                range.contains(&self.r),
+                "self.r `{}` not in range 0.0..=1.0",
+                self.r
+            );
+            assert!(
+                range.contains(&self.g),
+                "self.g `{}` not in range 0.0..=1.0",
+                self.g
+            );
+            assert!(
+                range.contains(&self.b),
+                "self.b `{}` not in range 0.0..=1.0",
+                self.b
+            );
+            assert!(
+                range.contains(&self.a),
+                "self.a `{}` not in range 0.0..=1.0",
+                self.a
+            );
             let mut color: u32 = (self.r * 255. * self.a) as u32;
             color = (color << 8) + (self.g * 255. * self.a) as u32;
             color = (color << 8) + (self.b * 255. * self.a) as u32;
@@ -101,19 +132,19 @@ impl Color {
             (true, _) => *self = *color,
             (_, true) => (),
             _ => {
-                self.r += color.r;
-                self.g += color.g;
-                self.b += color.b;
-                self.a += color.a;
+                self.r = (self.r + color.r).clamp(0., 1.);
+                self.g = (self.g + color.g).clamp(0., 1.);
+                self.b = (self.b + color.b).clamp(0., 1.);
+                self.a = (self.a + color.a).clamp(0., 1.);
             }
         }
     }
     pub fn mult(&mut self, factor: f32) -> Color {
         Color {
-            r: self.r * factor,
-            g: self.r * factor,
-            b: self.b * factor,
-            a: self.a * factor,
+            r: (self.r * factor).clamp(0., 1.),
+            g: (self.g * factor).clamp(0., 1.),
+            b: (self.b * factor).clamp(0., 1.),
+            a: (self.a * factor).clamp(0., 1.),
         }
     }
     pub fn factorize(&mut self, factor: f32) {
@@ -126,5 +157,15 @@ impl Color {
             b: (color & 0xff) as f32 / 255.,
             a: 1., // default value for alpha, note that softbuffer doesn't have alpha so it's not represented in final u32
         }
+    }
+}
+
+impl PartialEq for Color {
+    fn eq(&self, other: &Self) -> bool {
+        self.r == other.r && self.g == other.g && self.b == other.b && self.a == other.a
+    }
+
+    fn ne(&self, other: &Self) -> bool {
+        !self.eq(other)
     }
 }

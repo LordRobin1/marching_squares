@@ -39,6 +39,14 @@ impl Ball {
         // println!("{}. self.pos: {:?}", i, self.positions[i]);
     }
 }
+impl PartialEq for Ball {
+    fn eq(&self, other: &Self) -> bool {
+        self.position == other.position
+            && self.radius == other.radius
+            && self.velocity == other.velocity
+            && self.color == other.color
+    }
+}
 
 fn flip(velocity: &mut Point, axis: Axis) {
     match axis {
