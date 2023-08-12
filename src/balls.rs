@@ -25,8 +25,8 @@ impl Ball {
         }
     }
 
-    pub fn update(&mut self, size: PhysicalSize<u32>, delta_time: f32) {
-        let (width, height) = (size.width as f32, size.height as f32);
+    pub fn update(&mut self, size: (f32, f32), delta_time: f32) {
+        let (width, height) = size;
         self.position = self.position.add(&self.velocity.mult(delta_time));
 
         if self.position.x >= width || self.position.x <= 0. {
