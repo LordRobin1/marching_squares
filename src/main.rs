@@ -7,13 +7,15 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
 use winit::dpi::PhysicalSize;
-use winit::event::VirtualKeyCode;
+use winit::event::{ElementState, KeyboardInput, VirtualKeyCode};
 use winit::event::{Event, WindowEvent, WindowEvent::CursorMoved};
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::WindowBuilder;
 
 mod balls;
+mod square;
 use crate::balls::*;
+use crate::square::*;
 
 fn main() {
     let event_loop = EventLoop::new();
@@ -73,23 +75,28 @@ fn main() {
                     state.update = !state.update;
                 }
             }
-            Event::WindowEvent {
-                event: WindowEvent::CloseRequested,
-                window_id,
-            } if window_id == window.id() => {
-                *control_flow = ControlFlow::Exit;
-            }
-            Event::WindowEvent {
-                window_id,
-                event:
-                    CursorMoved {
-                        device_id,
-                        position,
-                        ..
-                    },
-            } if window_id == window.id() => {
-                (cursor.x, cursor.y) = (position.x as f32, position.y as f32);
-            }
+            Event::WindowEvent { event, window_id } if window_id == window.id() => match event {
+                WindowEvent::CloseRequested => {
+                    *control_flow = ControlFlow::Exit;
+                }
+                WindowEvent::Resized(physical_size) => state.resize(physical_size, delta_time),
+                WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
+                    state.resize(*new_inner_size, delta_time)
+                }
+                WindowEvent::CursorMoved { position, .. } => {
+                    (cursor.x, cursor.y) = (position.x as f32, position.y as f32)
+                }
+                WindowEvent::KeyboardInput {
+                    input:
+                        KeyboardInput {
+                            state: ElementState::Released,
+                            virtual_keycode: Some(VirtualKeyCode::Space),
+                            ..
+                        },
+                    ..
+                } => state.update = !state.update,
+                _ => {}
+            },
             _ => {}
         }
     });
@@ -100,6 +107,7 @@ struct State {
     buffer: Vec<u32>,
     context: GraphicsContext,
     size: (f32, f32),
+    grid_res: u32,
     cursor: Point,
     update: bool,
 }
@@ -162,6 +170,7 @@ impl State {
             buffer: vec![0; (size.width * size.height) as usize],
             context,
             size: (size.width as f32, size.height as f32),
+            grid_res: 100,
             cursor: Point { x: 0., y: 0. },
             update: true,
         }
@@ -169,9 +178,11 @@ impl State {
 
     fn render(&mut self) {
         let (width, height) = self.size;
-        self.shade();
+        // dbg!("start marching");
+        self.marching_squares();
         self.context
-            .set_buffer(&self.buffer, width as u16, height as u16);
+            .set_buffer(&self.buffer, self.size.0 as u16, self.size.1 as u16);
+        self.buffer = vec![0; (self.size.0 * self.size.1) as usize]
     }
 
     fn shade(&mut self) {
@@ -189,7 +200,7 @@ impl State {
                         ..Default::default()
                     },
                 };
-                self.metal_ball_shader(&mut pxl, Overlay);
+                self.metaball_shader(&mut pxl, Overlay);
                 self.buffer[(y as f32 * width + x as f32) as usize] = pxl.color.as_u32();
             }
         }
@@ -211,16 +222,35 @@ impl State {
         self.update(&cursor, delta_time);
     }
 
-    fn metal_ball_shader(&mut self, pxl: &mut Pixel, col_mode: ColorMode) {
+    /// marching squares algorithm to draw metaball contour
+    fn marching_squares(&mut self) {
+        let dimension = self.size.0 as u32 / self.grid_res;
+        let (mut x, mut y) = (0u32, 0u32);
+        while (0..self.size.1 as u32).contains(&y) {
+            while (0..self.size.0 as u32).contains(&x) {
+                // dbg!(x, y);
+                let mut square = Square {
+                    origin: Point {
+                        x: x as f32,
+                        y: y as f32,
+                    },
+                    dimension: dimension as f32,
+                };
+                square.march(&mut self.buffer, &self.balls, self.size.0 as u32);
+                x += dimension;
+            }
+            y += dimension;
+            x = 0;
+        }
+    }
+
+    /// pixel based metaballs (not optimized because i'm too dumb for that polynomial stuff)
+    fn metaball_shader(&mut self, pxl: &mut Pixel, col_mode: ColorMode) {
         let mut sum = 0.;
         for ball in self.balls.as_mut_slice() {
-            let influence = {
-                (ball.radius.powi(2)
-                    / ((pxl.pos.x - ball.position.x).powi(2)
-                        + (pxl.pos.y - ball.position.y).powi(2)))
-                .clamp(0., 2.)
-            };
-            sum += influence;
+            let influence =
+                { (ball.radius.powi(2) / pxl.pos.sq_distance(&ball.position)).clamp(0., 2.) };
+            sum += influence.clamp(0., 1.);
             pxl.color.add(&ball.color.mult(influence));
         }
         if sum < 1.
@@ -248,16 +278,4 @@ fn step(value: f32, edge: f32) -> f32 {
 fn smooth_step(value: f32, edge_0: f32, edge_1: f32) -> f32 {
     let x = ((value - edge_0) / (edge_1 - edge_0)).clamp(0., 1.);
     x * x * (3. - 2. * x)
-}
-
-fn dist_to_center(pxl: &Pixel, width: &i32, height: &i32) -> f32 {
-    let origin = Point { x: 0., y: 0. };
-    let mid = Point {
-        x: *width as f32 / 2.,
-        y: *height as f32 / 2.,
-    };
-    let max_dist = origin.distance(&mid);
-
-    let distance = mid.distance(&pxl.pos);
-    distance / max_dist
 }
