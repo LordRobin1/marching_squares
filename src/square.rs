@@ -15,6 +15,7 @@ struct WeightedPoint {
 }
 
 /// T: top, B: bottom, l: left, r: right
+/// this will be removed later since it causes the need to match two times
 enum Case {
     Full,
     Empty,
@@ -35,7 +36,7 @@ enum Case {
 }
 
 impl Square {
-    pub fn march(&mut self, buffer: &mut [u32], balls: &[Ball], width: u32) {
+    pub fn march(&mut self, buffer: &mut [u32], balls: &[Ball], width: u32, height: u32) {
         let formula = |p: Point| -> f32 {
             let mut sum = 0.;
             for ball in balls {
@@ -57,18 +58,24 @@ impl Square {
             x: self.dimension,
             y: self.dimension,
         }));
+        // actual code not written yet
+        // visual debugging purposes only:
         let case = self.shade(tl, tr, bl, br);
         if let Case::Full = case {
-            let y_range = self.origin.y as u32..(self.origin.y + self.dimension) as u32;
+            let y_range = if self.origin.y + self.dimension > height as f32 {
+                self.origin.y as u32..height
+            } else {
+                self.origin.y as u32..(self.origin.y + self.dimension) as u32
+            };
 
             for mut y in y_range {
-                let x_range = self.origin.x as u32..(self.origin.x + self.dimension) as u32;
-
+                let x_range = if self.origin.x + self.dimension > width as f32 {
+                    self.origin.x as u32..(width)
+                } else {
+                    self.origin.x as u32..(self.origin.x + self.dimension) as u32
+                };
                 for mut x in x_range {
                     let i = (x + y * width) as usize;
-                    if i >= buffer.len() {
-                        break;
-                    }
                     buffer[i] = Color {
                         r: 0.,
                         g: 0.8,

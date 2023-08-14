@@ -14,31 +14,39 @@ impl Point {
     pub fn origin() -> Self {
         Self { x: 0., y: 0. }
     }
+
     pub fn distance(&self, point: &Point) -> f32 {
         let d_x = self.x as f32 - point.x as f32;
         let d_y = self.y as f32 - point.y as f32;
         (d_x * d_x + d_y * d_y).sqrt()
     }
+
     pub fn sq_distance(&self, other: &Point) -> f32 {
         let d_x = self.x as f32 - other.x as f32;
         let d_y = self.y as f32 - other.y as f32;
         d_x * d_x + d_y * d_y
     }
+
     pub fn in_range(&self, point: &Point, range: f32) -> bool {
         let d_x = self.x as f32 - point.x as f32;
         let d_y = self.y as f32 - point.y as f32;
         (d_x * d_x + d_y * d_y) < range.powf(2.)
     }
-    pub fn clamp(&mut self, min: f32, max: f32) {
-        self.x = self.x.clamp(min, max);
-        self.y = self.y.clamp(min, max);
+
+    pub fn clamp(&mut self, min_x: f32, max_x: f32, min_y: f32, max_y: f32) -> Point {
+        Point {
+            x: self.x.clamp(min_x, max_x),
+            y: self.y.clamp(min_y, max_y),
+        }
     }
+
     pub fn mult(&self, factor: f32) -> Point {
         Point {
             x: self.x * factor,
             y: self.y * factor,
         }
     }
+
     pub fn add(&self, other: &Point) -> Point {
         Point {
             x: self.x + other.x,

@@ -27,7 +27,11 @@ impl Ball {
 
     pub fn update(&mut self, size: (f32, f32), delta_time: f32) {
         let (width, height) = size;
-        self.position = self.position.add(&self.velocity.mult(delta_time));
+        self.position = self
+            .position
+            .add(&self.velocity.mult(delta_time))
+            // clamp, so that balls can't disappearing on resize
+            .clamp(0., width, 0., height);
 
         if self.position.x >= width || self.position.x <= 0. {
             flip(&mut self.velocity, Axis::Vertical);
@@ -35,10 +39,10 @@ impl Ball {
         if self.position.y >= height || self.position.y <= 0. {
             flip(&mut self.velocity, Axis::Horizontal);
         }
-        // println!("{}. pos: {:?}", i, self.positions[i]);
-        // println!("{}. self.pos: {:?}", i, self.positions[i]);
+        self.radius = 0.1 * (width.powi(2) + height.powi(2)).sqrt();
     }
 }
+
 impl PartialEq for Ball {
     fn eq(&self, other: &Self) -> bool {
         self.position == other.position

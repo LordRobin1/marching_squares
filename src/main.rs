@@ -46,7 +46,6 @@ fn main() {
                 let time = start.elapsed();
                 delta_time = time.as_micros() as f32 / 1_000_000.0;
                 print!("\r");
-                // last_len = fps.to_string().len();
                 fps = 1_000_000 / time.as_micros();
                 print!(
                     "FPS: {}, Cursor: {}, {}{}",
@@ -61,19 +60,6 @@ fn main() {
                 event: WindowEvent::Resized(size),
             } if window_id == window.id() => {
                 state.resize(size, delta_time);
-            }
-            Event::WindowEvent {
-                window_id,
-                event:
-                    WindowEvent::KeyboardInput {
-                        device_id,
-                        input,
-                        is_synthetic,
-                    },
-            } if window_id == window.id() => {
-                if let VirtualKeyCode::Space = input.virtual_keycode.unwrap() {
-                    state.update = !state.update;
-                }
             }
             Event::WindowEvent { event, window_id } if window_id == window.id() => match event {
                 WindowEvent::CloseRequested => {
@@ -126,7 +112,7 @@ impl State {
             x: mid.x - 70.,
             y: mid.y,
         };
-        let radius = 200.0;
+        let radius = 0.1 * (size.width.pow(2) as f32 + size.height.pow(2) as f32).sqrt();
         let red = Color {
             r: 1.,
             g: 0.,
@@ -178,7 +164,6 @@ impl State {
 
     fn render(&mut self) {
         let (width, height) = self.size;
-        // dbg!("start marching");
         self.marching_squares();
         self.context
             .set_buffer(&self.buffer, self.size.0 as u16, self.size.1 as u16);
@@ -228,7 +213,6 @@ impl State {
         let (mut x, mut y) = (0u32, 0u32);
         while (0..self.size.1 as u32).contains(&y) {
             while (0..self.size.0 as u32).contains(&x) {
-                // dbg!(x, y);
                 let mut square = Square {
                     origin: Point {
                         x: x as f32,
@@ -236,7 +220,12 @@ impl State {
                     },
                     dimension: dimension as f32,
                 };
-                square.march(&mut self.buffer, &self.balls, self.size.0 as u32);
+                square.march(
+                    &mut self.buffer,
+                    &self.balls,
+                    self.size.0 as u32,
+                    self.size.1 as u32,
+                );
                 x += dimension;
             }
             y += dimension;
