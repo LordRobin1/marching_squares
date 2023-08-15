@@ -23,20 +23,20 @@ impl Point {
     }
 
     pub fn distance(&self, point: &Point) -> f32 {
-        let d_x = self.x as f32 - point.x as f32;
-        let d_y = self.y as f32 - point.y as f32;
+        let d_x = self.x - point.x;
+        let d_y = self.y - point.y;
         (d_x * d_x + d_y * d_y).sqrt()
     }
 
     pub fn sq_distance(&self, other: &Point) -> f32 {
-        let d_x = self.x as f32 - other.x as f32;
-        let d_y = self.y as f32 - other.y as f32;
+        let d_x = self.x - other.x;
+        let d_y = self.y - other.y;
         d_x * d_x + d_y * d_y
     }
 
     pub fn in_range(&self, point: &Point, range: f32) -> bool {
-        let d_x = self.x as f32 - point.x as f32;
-        let d_y = self.y as f32 - point.y as f32;
+        let d_x = self.x - point.x;
+        let d_y = self.y - point.y;
         (d_x * d_x + d_y * d_y) < range.powf(2.)
     }
 
