@@ -15,6 +15,13 @@ impl Point {
         Self { x: 0., y: 0. }
     }
 
+    pub fn new(x: u32, y: u32) -> Self {
+        Self {
+            x: x as f32,
+            y: y as f32,
+        }
+    }
+
     pub fn distance(&self, point: &Point) -> f32 {
         let d_x = self.x as f32 - point.x as f32;
         let d_y = self.y as f32 - point.y as f32;
@@ -84,6 +91,9 @@ pub struct Color {
 }
 
 impl Color {
+    pub fn new(r: f32, g: f32, b: f32, a: f32) -> Self {
+        Self { r, g, b, a }
+    }
     /// Will return 0 if alpha == 0
     pub fn as_u32(&self) -> u32 {
         if self.a == 0. {
@@ -184,4 +194,18 @@ impl PartialEq for Color {
     fn ne(&self, other: &Self) -> bool {
         !self.eq(other)
     }
+}
+
+/// returns a value between 0. and 1.
+pub fn step(value: f32, edge: f32) -> f32 {
+    match value < edge {
+        true => 1.,
+        _ => 0.,
+    }
+}
+
+/// returns a smooth value between 0. and 1.
+pub fn smooth_step(value: f32, edge_0: f32, edge_1: f32) -> f32 {
+    let x = ((value - edge_0) / (edge_1 - edge_0)).clamp(0., 1.);
+    x * x * (3. - 2. * x)
 }
