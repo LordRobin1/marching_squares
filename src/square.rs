@@ -1,4 +1,3 @@
-use crate::balls::*;
 use pixel_lib::*;
 
 #[macro_export]
@@ -12,6 +11,7 @@ use pixel_lib::*;
 ///     p.x * constant
 /// };
 /// let implicit_func = implicit_fn!(func, 3.14);
+/// ```
 macro_rules! implicit_fn {
     ($func: expr, $($arg: expr),*) => {
         |p: Point| -> f32 {
@@ -54,7 +54,7 @@ impl<'a> Square<'a> {
         }
     }
 
-    pub fn march(&mut self, buffer: &mut [u32], balls: &[Ball], width: u32, height: u32) {
+    pub fn march(&mut self, buffer: &mut [u32], width: u32, height: u32) {
         let impl_fun = self.implicit_fn;
         let tl = impl_fun(self.origin);
         let tr = impl_fun(self.origin.add(&Point {

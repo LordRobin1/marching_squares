@@ -30,12 +30,12 @@ impl Ball {
             .position
             .add(&self.velocity.mult(delta_time))
             // clamp, so that balls can't disappearing on resize
-            .clamp(0., width, 0., height);
+            .clamp(0., width - self.radius, 0., height - self.radius);
 
-        if self.position.x >= width || self.position.x <= 0. {
+        if self.position.x + self.radius >= width || self.position.x - self.radius <= 0. {
             flip(&mut self.velocity, Axis::Vertical);
         }
-        if self.position.y >= height || self.position.y <= 0. {
+        if self.position.y + self.radius >= height || self.position.y - self.radius <= 0. {
             flip(&mut self.velocity, Axis::Horizontal);
         }
         self.radius = 0.1 * (width.powi(2) + height.powi(2)).sqrt();

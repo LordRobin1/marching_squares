@@ -138,13 +138,14 @@ impl State {
         self.buffer = vec![0; (self.size.0 * self.size.1) as usize]
     }
 
-    fn update(&mut self, _cursor: &Point, delta_time: f32) {
+    fn update(&mut self, cursor: &Point, delta_time: f32) {
         if !self.update {
             return;
         }
         for ball in self.balls.as_mut_slice() {
             ball.update(self.size, delta_time);
         }
+        self.balls[0].position = *cursor;
     }
 
     fn resize(&mut self, size: PhysicalSize<u32>, delta_time: f32) {
@@ -174,12 +175,7 @@ impl State {
             while (0..self.size.0 as u32).contains(&x) {
                 let mut square =
                     Square::new(Point::new(x, y), dimension as f32, vec![], &implicit_fn);
-                square.march(
-                    &mut self.buffer,
-                    &self.balls,
-                    self.size.0 as u32,
-                    self.size.1 as u32,
-                );
+                square.march(&mut self.buffer, self.size.0 as u32, self.size.1 as u32);
                 x += dimension;
             }
             y += dimension;
