@@ -1,5 +1,4 @@
-use pixel_lib::{ColorMode::*, *};
-use winit::dpi::PhysicalSize;
+use pixel_lib::*;
 
 enum Axis {
     Horizontal,
