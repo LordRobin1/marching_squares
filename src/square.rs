@@ -14,11 +14,16 @@ use pixel_lib::*;
 /// let implicit_func = implicit_fn!(func, 3.14);
 /// ```
 macro_rules! implicit_fn {
+    // with args
     ($func: expr, $($arg: expr),*) => {
         |p: Point| -> f32 {
             $func(p, $($arg),*)
         }
     };
+    // no args
+    ($func: expr) => {
+        $func
+    }
 }
 
 /// Squares for the marching squares algorithm
@@ -88,10 +93,10 @@ impl<'a> Square<'a> {
 
         // some of the cases can be combined
         match (
-            self.weights[0] > 1.,
-            self.weights[1] > 1.,
-            self.weights[2] > 1.,
-            self.weights[3] > 1.,
+            self.weights[0] >= 1.,
+            self.weights[1] >= 1.,
+            self.weights[2] >= 1.,
+            self.weights[3] >= 1.,
         ) {
             (true, true, true, true) => (),
             (false, false, false, false) => (),
