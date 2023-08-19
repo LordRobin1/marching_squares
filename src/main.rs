@@ -16,6 +16,8 @@ fn main() {
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new().build(&event_loop).unwrap();
     let graphics_context = unsafe { GraphicsContext::new(&window, &window) }.unwrap();
+    let print = true;
+
     let mut delta_time = Default::default();
 
     let mut cursor = Point::origin();
@@ -32,24 +34,20 @@ fn main() {
                 state.render();
                 state.update(&cursor, delta_time);
 
-                // FPS
                 let time = start.elapsed();
                 delta_time = time.as_micros() as f32 / 1_000_000.0;
-                print!("\r");
-                let fps = 1_000_000 / time.as_micros();
-                print!(
-                    "FPS: {}, Cursor: {}, {}{}",
-                    fps,
-                    cursor.x,
-                    cursor.y,
-                    " ".repeat(50),
-                );
-            }
-            Event::WindowEvent {
-                window_id,
-                event: WindowEvent::Resized(size),
-            } if window_id == window.id() => {
-                state.resize(size, delta_time);
+
+                // Print FPS
+                if print {
+                    print!("\r");
+                    let fps = 1_000_000 / time.as_micros();
+                    print!(
+                        "FPS: {}, Grid Resolution: {}{}",
+                        fps,
+                        state.grid_res,
+                        " ".repeat(20),
+                    );
+                }
             }
             Event::WindowEvent { event, window_id } if window_id == window.id() => match event {
                 WindowEvent::CloseRequested => {
@@ -62,15 +60,24 @@ fn main() {
                 WindowEvent::CursorMoved { position, .. } => {
                     (cursor.x, cursor.y) = (position.x as f32, position.y as f32)
                 }
-                WindowEvent::KeyboardInput {
-                    input:
-                        KeyboardInput {
-                            state: ElementState::Released,
-                            virtual_keycode: Some(VirtualKeyCode::Space),
-                            ..
-                        },
-                    ..
-                } => state.update = !state.update,
+                WindowEvent::KeyboardInput { input, .. } => match input {
+                    KeyboardInput {
+                        state: ElementState::Released,
+                        virtual_keycode: Some(VirtualKeyCode::Space),
+                        ..
+                    } => state.update = !state.update,
+                    KeyboardInput {
+                        state: ElementState::Pressed,
+                        virtual_keycode: Some(VirtualKeyCode::Up),
+                        ..
+                    } => state.grid_res += 1,
+                    KeyboardInput {
+                        state: ElementState::Pressed,
+                        virtual_keycode: Some(VirtualKeyCode::Down),
+                        ..
+                    } => state.grid_res = (state.grid_res - 1).clamp(1, u32::MAX),
+                    _ => {}
+                },
                 _ => {}
             },
             _ => {}
@@ -90,9 +97,9 @@ struct State {
 
 impl State {
     fn new(size: &PhysicalSize<u32>, context: GraphicsContext) -> Self {
-        let mid = Point::new(size.width / 2, size.height / 2);
-        let p1 = Point::new(mid.x as u32 + 70, mid.y as u32);
-        let p2 = Point::new(mid.x as u32 - 70, mid.y as u32);
+        let mid = Point::new_u(size.width / 2, size.height / 2);
+        let p1 = Point::new_u(mid.x as u32 + 70, mid.y as u32);
+        let p2 = Point::new_u(mid.x as u32 - 70, mid.y as u32);
 
         let radius = 0.1 * (size.width.pow(2) as f32 + size.height.pow(2) as f32).sqrt();
 
@@ -174,7 +181,7 @@ impl State {
         while (0..self.size.1 as u32).contains(&y) {
             while (0..self.size.0 as u32).contains(&x) {
                 let mut square =
-                    Square::new(Point::new(x, y), dimension as f32, vec![], &implicit_fn);
+                    Square::new(Point::new_u(x, y), dimension as f32, vec![], &implicit_fn);
                 square.march(&mut self.buffer, self.size.0 as u32, self.size.1 as u32);
                 x += dimension;
             }

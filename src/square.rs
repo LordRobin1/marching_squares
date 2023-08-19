@@ -1,3 +1,4 @@
+use line_renderer::bresenham;
 use pixel_lib::*;
 
 #[macro_export]
@@ -77,7 +78,7 @@ impl<'a> Square<'a> {
 
     /// Calculates the contours intersection points with the square
     /// and calls `rasterize_line` if it intersects
-    fn shade(&self, width: u32, height: u32, buffer: &mut [u32]) {
+    fn shade(&self, width: u32, _height: u32, buffer: &mut [u32]) {
         let hori_bound = self.origin.x + self.dimension;
         let vert_bound = self.origin.y + self.dimension;
         let tl = WeightedPoint::new(self.origin.x, self.origin.y, self.weights[0]);
@@ -98,89 +99,89 @@ impl<'a> Square<'a> {
                 // X O
                 // O O
                 let (p1, p2) = self.compute_intersection((&tl, &tr), (&tl, &bl));
-                self.rasterize_line(&p1, &p2, buffer, width, height);
+                self.rasterize(&p1, &p2, buffer, width);
             }
             (false, true, false, false) => {
                 // O X
                 // O O
                 let (p1, p2) = self.compute_intersection((&tr, &tl), (&tr, &br));
-                self.rasterize_line(&p1, &p2, buffer, width, height);
+                self.rasterize(&p1, &p2, buffer, width);
             }
             (false, false, true, false) => {
                 // O O
                 // X O
                 let (p1, p2) = self.compute_intersection((&bl, &tl), (&bl, &br));
-                self.rasterize_line(&p1, &p2, buffer, width, height);
+                self.rasterize(&p1, &p2, buffer, width);
             }
             (false, false, false, true) => {
                 // O O
                 // O X
                 let (p1, p2) = self.compute_intersection((&br, &bl), (&br, &tr));
-                self.rasterize_line(&p1, &p2, buffer, width, height);
+                self.rasterize(&p1, &p2, buffer, width);
             }
             (true, false, true, false) => {
                 // X O    O X
                 // X O    O X
                 let (p1, p2) = self.compute_intersection((&tl, &tr), (&bl, &br));
-                self.rasterize_line(&p1, &p2, buffer, width, height);
+                self.rasterize(&p1, &p2, buffer, width);
             }
             (false, true, false, true) => {
                 // O X
                 // O X
                 let (p1, p2) = self.compute_intersection((&tl, &tr), (&bl, &br));
-                self.rasterize_line(&p1, &p2, buffer, width, height);
+                self.rasterize(&p1, &p2, buffer, width);
             }
             (true, true, false, false) => {
                 // X X    O O
                 // O O    X X
                 let (p1, p2) = self.compute_intersection((&tl, &bl), (&tr, &br));
-                self.rasterize_line(&p1, &p2, buffer, width, height);
+                self.rasterize(&p1, &p2, buffer, width);
             }
             (false, false, true, true) => {
                 // O O
                 // X X
                 let (p1, p2) = self.compute_intersection((&tl, &bl), (&tr, &br));
-                self.rasterize_line(&p1, &p2, buffer, width, height);
+                self.rasterize(&p1, &p2, buffer, width);
             }
             (true, false, false, true) => {
                 // X O
                 // O X
                 let (p1, p2) = self.compute_intersection((&tl, &tr), (&tl, &bl));
-                self.rasterize_line(&p1, &p2, buffer, width, height);
                 let (p3, p4) = self.compute_intersection((&br, &bl), (&bl, &tl));
-                self.rasterize_line(&p3, &p4, buffer, width, height);
+                self.rasterize(&p1, &p2, buffer, width);
+                self.rasterize(&p3, &p4, buffer, width);
             }
             (false, true, true, false) => {
                 // O X
                 // X O
                 let (p1, p2) = self.compute_intersection((&tl, &tr), (&tl, &bl));
-                self.rasterize_line(&p1, &p2, buffer, width, height);
                 let (p3, p4) = self.compute_intersection((&br, &bl), (&bl, &tl));
-                self.rasterize_line(&p3, &p4, buffer, width, height);
+                self.rasterize(&p1, &p2, buffer, width);
+                self.rasterize(&p3, &p4, buffer, width);
             }
             (true, true, true, false) => {
                 // X X
                 // X O
                 let (p1, p2) = self.compute_intersection((&bl, &br), (&tr, &br));
-                self.rasterize_line(&p1, &p2, buffer, width, height);
+                self.rasterize(&p1, &p2, buffer, width);
             }
             (true, true, false, true) => {
                 // X X
                 // O X
                 let (p1, p2) = self.compute_intersection((&bl, &br), (&tl, &bl));
-                self.rasterize_line(&p1, &p2, buffer, width, height);
+                self.rasterize(&p1, &p2, buffer, width);
             }
             (true, false, true, true) => {
                 // X O
                 // X X
                 let (p1, p2) = self.compute_intersection((&tl, &tr), (&br, &tr));
-                self.rasterize_line(&p1, &p2, buffer, width, height);
+                self.rasterize(&p1, &p2, buffer, width);
             }
             (false, true, true, true) => {
                 // O X
                 // X X
                 let (p1, p2) = self.compute_intersection((&tl, &tr), (&tl, &bl));
-                self.rasterize_line(&p1, &p2, buffer, width, height);
+                self.rasterize(&p1, &p2, buffer, width);
             }
         }
     }
@@ -213,29 +214,7 @@ impl<'a> Square<'a> {
         (compute(pair1), compute(pair2))
     }
 
-    fn rasterize_line(&self, p1: &Point, p2: &Point, buffer: &mut [u32], width: u32, height: u32) {
-        let y_range = if self.origin.y + self.dimension > height as f32 {
-            self.origin.y as u32..height
-        } else {
-            self.origin.y as u32..(self.origin.y + self.dimension) as u32
-        };
-
-        for y in y_range {
-            let x_range = if self.origin.x + self.dimension > width as f32 {
-                self.origin.x as u32..(width)
-            } else {
-                self.origin.x as u32..(self.origin.x + self.dimension) as u32
-            };
-            for x in x_range {
-                let i = (x + y * width) as usize;
-                buffer[i] = Color {
-                    r: 0.,
-                    g: 0.8,
-                    b: 0.0,
-                    a: 1.,
-                }
-                .as_u32();
-            }
-        }
+    fn rasterize(&self, p0: &Point, p1: &Point, buffer: &mut [u32], width: u32) {
+        bresenham(buffer, p0, p1, width as i32);
     }
 }

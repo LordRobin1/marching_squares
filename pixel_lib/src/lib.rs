@@ -15,11 +15,14 @@ impl Point {
         Self { x: 0., y: 0. }
     }
 
-    pub fn new(x: u32, y: u32) -> Self {
+    pub fn new_u(x: u32, y: u32) -> Self {
         Self {
             x: x as f32,
             y: y as f32,
         }
+    }
+    pub fn new(x: f32, y: f32) -> Self {
+        Self { x, y }
     }
 
     pub fn distance(&self, point: &Point) -> f32 {
@@ -65,10 +68,6 @@ impl Point {
 impl PartialEq for Point {
     fn eq(&self, other: &Self) -> bool {
         self.x == other.x && self.y == other.y
-    }
-
-    fn ne(&self, other: &Self) -> bool {
-        !self.eq(other)
     }
 }
 
@@ -189,10 +188,6 @@ impl Color {
 impl PartialEq for Color {
     fn eq(&self, other: &Self) -> bool {
         self.r == other.r && self.g == other.g && self.b == other.b && self.a == other.a
-    }
-
-    fn ne(&self, other: &Self) -> bool {
-        !self.eq(other)
     }
 }
 

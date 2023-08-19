@@ -1,3 +1,5 @@
+use std::f32::INFINITY;
+
 use pixel_lib::*;
 
 enum Axis {
@@ -30,7 +32,12 @@ impl Ball {
             .position
             .add(&self.velocity.mult(delta_time))
             // clamp, so that balls can't disappearing on resize
-            .clamp(0., width - self.radius, 0., height - self.radius);
+            .clamp(
+                0.,
+                (width - self.radius).clamp(0., INFINITY),
+                0.,
+                (height - self.radius).clamp(0., INFINITY),
+            );
 
         if self.position.x + self.radius >= width || self.position.x - self.radius <= 0. {
             flip(&mut self.velocity, Axis::Vertical);
