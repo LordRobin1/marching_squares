@@ -58,9 +58,9 @@ impl<'a> Square<'a> {
 
     /// Calculates the contours intersection points with the square
     /// and calls `rasterize_line` if it intersects
-    fn shade(&self, width: u32, _height: u32, buffer: &mut [u32]) {
-        let hori_bound = self.origin.x + self.dimension;
-        let vert_bound = self.origin.y + self.dimension;
+    fn shade(&self, width: u32, height: u32, buffer: &mut [u32]) {
+        let hori_bound = (self.origin.x + self.dimension).clamp(self.origin.x, (width - 1) as f32);
+        let vert_bound = (self.origin.y + self.dimension).clamp(self.origin.y, (height - 1) as f32);
         let tl = WeightedPoint::new(self.origin.x, self.origin.y, self.weights[0]);
         let tr = WeightedPoint::new(hori_bound, self.origin.y, self.weights[1]);
         let bl = WeightedPoint::new(self.origin.x, vert_bound, self.weights[2]);
@@ -191,6 +191,7 @@ impl<'a> Square<'a> {
             }
             intersect
         };
+
         (compute(pair1), compute(pair2))
     }
 
