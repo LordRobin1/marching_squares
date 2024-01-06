@@ -1,31 +1,6 @@
 use line_renderer::bresenham;
 use pixel_lib::*;
 
-#[macro_export]
-/// # Creates a closure which takes a `Point` and is then used to compute the implicit function
-/// Pass a closure to this macro which takes a `Point` as the 1st argument and everything else that it needs after that
-///
-/// ---
-/// Example:
-/// ```
-/// let func = |p: Point, constant: f32| -> f32 {
-///     p.x * constant
-/// };
-/// let implicit_func = implicit_fn!(func, 3.14);
-/// ```
-macro_rules! implicit_fn {
-    // with args
-    ($func: expr, $($arg: expr),*) => {
-        |p: Point| -> f32 {
-            $func(p, $($arg),*)
-        }
-    };
-    // no args
-    ($func: expr) => {
-        $func
-    }
-}
-
 /// Squares for the marching squares algorithm
 pub struct Square<'a> {
     origin: Point,

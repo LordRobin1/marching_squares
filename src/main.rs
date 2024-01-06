@@ -149,10 +149,10 @@ impl State {
         if !self.update {
             return;
         }
+        self.balls[0].position = *cursor;
         for ball in self.balls.as_mut_slice() {
             ball.update(self.size, delta_time);
         }
-        self.balls[0].position = *cursor;
     }
 
     fn resize(&mut self, size: PhysicalSize<u32>, delta_time: f32) {
@@ -167,16 +167,14 @@ impl State {
         let dimension = self.size.0 as u32 / self.grid_res;
         let (mut x, mut y) = (0u32, 0u32);
 
-        let compute_influence = |p: Point, balls: &[Ball]| -> f32 {
+        let implicit_fn = |p: Point| -> f32 {
             let mut sum = 0.;
-            for ball in balls {
+            for ball in &self.balls {
                 let influence = (ball.radius.powi(2) / p.sq_distance(&ball.position)).clamp(0., 2.);
                 sum += influence.clamp(0., 1.);
             }
             sum
         };
-
-        let implicit_fn = implicit_fn!(compute_influence, &self.balls);
 
         while (0..self.size.1 as u32).contains(&y) {
             while (0..self.size.0 as u32).contains(&x) {
@@ -186,7 +184,7 @@ impl State {
                 x += dimension;
             }
             y += dimension;
-            x ^= x;
+            x = 0;
         }
     }
 }
