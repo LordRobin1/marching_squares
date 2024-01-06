@@ -1,5 +1,3 @@
-use std::f32::INFINITY;
-
 use pixel_lib::*;
 
 enum Axis {
@@ -31,19 +29,19 @@ impl Ball {
         self.position = self
             .position
             .add(&self.velocity.mult(delta_time))
-            // clamp, so that balls can't disappearing on resize
+            // clamp, so that balls can't disappear on resize
             .clamp(
-                0.,
-                (width - self.radius).clamp(0., INFINITY),
-                0.,
-                (height - self.radius).clamp(0., INFINITY),
+                self.radius,
+                (width - self.radius).clamp(0.0, f32::INFINITY),
+                self.radius,
+                (height - self.radius).clamp(0.0, f32::INFINITY),
             );
 
-        if self.position.x + self.radius >= width || self.position.x - self.radius <= 0. {
-            flip(&mut self.velocity, Axis::Vertical);
+        if self.position.x + self.radius >= width || self.position.x - self.radius <= 0.0 {
+            self.velocity.x = -self.velocity.x;
         }
-        if self.position.y + self.radius >= height || self.position.y - self.radius <= 0. {
-            flip(&mut self.velocity, Axis::Horizontal);
+        if self.position.y + self.radius >= height || self.position.y - self.radius <= 0.0 {
+            self.velocity.y = -self.velocity.y;
         }
         self.radius = 0.1 * (width.powi(2) + height.powi(2)).sqrt();
     }
@@ -55,12 +53,5 @@ impl PartialEq for Ball {
             && self.radius == other.radius
             && self.velocity == other.velocity
             && self.color == other.color
-    }
-}
-
-fn flip(velocity: &mut Point, axis: Axis) {
-    match axis {
-        Axis::Vertical => velocity.x = -velocity.x,
-        Axis::Horizontal => velocity.y = -velocity.y,
     }
 }
